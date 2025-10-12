@@ -1,0 +1,104 @@
+/* Layout general */
+body, html {
+  height: 100%;
+  margin: 0;
+  background-color: #f8fafc;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Sidebar */
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  background: linear-gradient(180deg, #1e1e2f 0%, #2a2a3f 100%);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1rem;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar-header i {
+  color: #00d4ff;
+}
+
+.sidebar-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #00d4ff;
+}
+
+.sidebar-menu .nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #cfd2dc;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.sidebar-menu .nav-link:hover,
+.sidebar-menu .nav-link.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  transform: translateX(4px);
+}
+
+.sidebar-menu .nav-link i {
+  width: 24px;
+  text-align: center;
+}
+
+.sidebar-menu .logout {
+  color: #ff6b6b;
+}
+
+.sidebar-menu .logout:hover {
+  background: rgba(255, 107, 107, 0.1);
+  color: #fff;
+}
+
+.sidebar-menu .nav-link i {
+  width: 24px;
+  text-align: center;
+}
+
+
+/* Contenido principal */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Barra superior */
+.topbar {
+  background: #ffffff;
+  border-bottom: 1px solid #ddd;
+  padding: 0.8rem 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* Contenido */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  background: #f8fafc;
+}
+
+/* Pie de página */
+.footer {
+  background: #ffffff;
+  padding: 0.8rem;
+  border-top: 1px solid #ddd;
+  color: #555;
+}
