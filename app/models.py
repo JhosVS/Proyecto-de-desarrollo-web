@@ -33,19 +33,13 @@ from app.db import get_connection
 # =====================================================
 
 def obtener_productos():
+    """Obtiene todos los productos usando sp_ObtenerProductos"""
     conn = get_connection()
     productos = []
     try:
         cursor = conn.cursor()
-        query = """
-            SELECT p.id_producto, p.nombre, c.nombre AS categoria, pr.nombre AS proveedor,
-                   p.unidad_medida, p.stock_actual, p.stock_minimo, p.precio_unitario, p.estado
-            FROM Productos p
-            INNER JOIN Categorias c ON p.id_categoria = c.id_categoria
-            INNER JOIN Proveedores pr ON p.id_proveedor = pr.id_proveedor
-            ORDER BY p.id_producto DESC
-        """
-        cursor.execute(query)
+        cursor.execute("EXEC sp_ObtenerProductos")
+        
         for row in cursor.fetchall():
             productos.append({
                 "id": row.id_producto,
@@ -54,7 +48,7 @@ def obtener_productos():
                 "proveedor": row.proveedor,
                 "unidad": row.unidad_medida,
                 "stock": float(row.stock_actual),
-                "stock_minimo": float(row.stock_minimo),  # <-- esto es nuevo
+                "stock_minimo": float(row.stock_minimo),
                 "precio": float(row.precio_unitario),
                 "estado": row.estado
             })
@@ -82,6 +76,7 @@ def obtener_proveedores():
 
 
 def agregar_producto(nombre, id_categoria, id_proveedor, unidad, stock_inicial, stock_minimo, precio_unitario):
+    """Agrega producto usando sp_AgregarProducto"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -99,18 +94,12 @@ def agregar_producto(nombre, id_categoria, id_proveedor, unidad, stock_inicial, 
         conn.close()
 
 
-# EL SIGUIENTE AVANCE:
-
 def obtener_producto_por_id(id_producto):
+    """Obtiene un producto por ID usando sp_ObtenerProductoPorId"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id_producto, nombre, id_categoria, id_proveedor,
-                   unidad_medida, stock_actual, stock_minimo, precio_unitario, estado
-            FROM Productos
-            WHERE id_producto = ?
-        """, (id_producto,))
+        cursor.execute("EXEC sp_ObtenerProductoPorId @id_producto=?", (id_producto,))
         
         row = cursor.fetchone()
         if not row:
@@ -122,9 +111,9 @@ def obtener_producto_por_id(id_producto):
             "id_categoria": row.id_categoria,
             "id_proveedor": row.id_proveedor,
             "unidad": row.unidad_medida,
-            "stock": row.stock_actual,
-            "stock_minimo": row.stock_minimo,
-            "precio": row.precio_unitario,
+            "stock": float(row.stock_actual),
+            "stock_minimo": float(row.stock_minimo),
+            "precio": float(row.precio_unitario),
             "estado": row.estado
         }
     except Exception as e:
@@ -135,15 +124,15 @@ def obtener_producto_por_id(id_producto):
 
 
 def actualizar_producto(id_producto, nombre, id_categoria, id_proveedor, unidad, stock_minimo, precio):
+    """Actualiza producto usando sp_ActualizarProducto"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
         cursor.execute("""
-            UPDATE Productos
-            SET nombre=?, id_categoria=?, id_proveedor=?, 
-                unidad_medida=?, stock_minimo=?, precio_unitario=?
-            WHERE id_producto=?
-        """, (nombre, id_categoria, id_proveedor, unidad, stock_minimo, precio, id_producto))
+            EXEC sp_ActualizarProducto
+                @id_producto=?, @nombre=?, @id_categoria=?, @id_proveedor=?,
+                @unidad_medida=?, @stock_minimo=?, @precio_unitario=?
+        """, (id_producto, nombre, id_categoria, id_proveedor, unidad, stock_minimo, precio))
         conn.commit()
         return True
     except Exception as e:
@@ -154,31 +143,21 @@ def actualizar_producto(id_producto, nombre, id_categoria, id_proveedor, unidad,
 
 
 def eliminar_producto(id_producto):
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("UPDATE Productos SET estado = 'Inactivo' WHERE id_producto = ?", (id_producto,))
-        conn.commit()
-        return True
-    except Exception as e:
-        print("Error al eliminar producto:", e)
-        return False
-    finally:
-        conn.close()
+    """Elimina (inactiva) producto"""
+    return cambiar_estado_producto(id_producto, 'Inactivo')
+
 
 def cambiar_estado_producto(id_producto, nuevo_estado):
+    """Cambia estado usando sp_CambiarEstadoProducto"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            UPDATE Productos
-            SET estado = ?
-            WHERE id_producto = ?
-        """, (nuevo_estado, id_producto))
+        cursor.execute("EXEC sp_CambiarEstadoProducto @id_producto=?, @nuevo_estado=?", 
+                      (id_producto, nuevo_estado))
         conn.commit()
         return True
     except Exception as e:
-        print("Error al cambiar estado del producto:", e)
+        print("Error al cambiar estado:", e)
         return False
     finally:
         conn.close()
@@ -189,12 +168,24 @@ def cambiar_estado_producto(id_producto, nuevo_estado):
 #   CATEGORÍAS
 # =====================================================
 
+def obtener_categorias():
+    """Lista simple para dropdowns"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_categoria, nombre FROM Categorias ORDER BY nombre")
+        return [{"id": r.id_categoria, "nombre": r.nombre} for r in cursor.fetchall()]
+    finally:
+        conn.close()
+
 def obtener_categorias_todas():
+    """Obtiene todas las categorías con detalles usando sp_ObtenerCategorias"""
     conn = get_connection()
     categorias = []
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id_categoria, nombre, descripcion FROM Categorias ORDER BY id_categoria DESC")
+        cursor.execute("EXEC sp_ObtenerCategorias")
+        
         for row in cursor.fetchall():
             categorias.append({
                 "id": row.id_categoria,
@@ -206,13 +197,12 @@ def obtener_categorias_todas():
     return categorias
 
 def agregar_categoria(nombre, descripcion):
+    """Agrega categoría usando sp_AgregarCategoria"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO Categorias (nombre, descripcion)
-            VALUES (?, ?)
-        """, (nombre, descripcion))
+        cursor.execute("EXEC sp_AgregarCategoria @nombre=?, @descripcion=?", 
+                      (nombre, descripcion))
         conn.commit()
         return True
     except Exception as e:
@@ -221,19 +211,17 @@ def agregar_categoria(nombre, descripcion):
     finally:
         conn.close()
 
-
 def obtener_categoria_por_id(id_categoria):
+    """Obtiene una categoría por ID usando sp_ObtenerCategoriaPorId"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id_categoria, nombre, descripcion
-            FROM Categorias
-            WHERE id_categoria = ?
-        """, (id_categoria,))
+        cursor.execute("EXEC sp_ObtenerCategoriaPorId @id_categoria=?", (id_categoria,))
+        
         row = cursor.fetchone()
         if not row:
             return None
+            
         return {
             "id": row.id_categoria,
             "nombre": row.nombre,
@@ -244,14 +232,12 @@ def obtener_categoria_por_id(id_categoria):
 
 
 def actualizar_categoria(id_categoria, nombre, descripcion):
+    """Actualiza categoría usando sp_ActualizarCategoria"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            UPDATE Categorias
-            SET nombre = ?, descripcion = ?
-            WHERE id_categoria = ?
-        """, (nombre, descripcion, id_categoria))
+        cursor.execute("EXEC sp_ActualizarCategoria @id_categoria=?, @nombre=?, @descripcion=?",
+                      (id_categoria, nombre, descripcion))
         conn.commit()
         return True
     except Exception as e:
@@ -262,10 +248,11 @@ def actualizar_categoria(id_categoria, nombre, descripcion):
 
 
 def eliminar_categoria(id_categoria):
+    """Elimina categoría usando sp_EliminarCategoria"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM Categorias WHERE id_categoria = ?", (id_categoria,))
+        cursor.execute("EXEC sp_EliminarCategoria @id_categoria=?", (id_categoria,))
         conn.commit()
         return True
     except Exception as e:
@@ -280,11 +267,13 @@ def eliminar_categoria(id_categoria):
 # =====================================================
 
 def obtener_proveedores_todos():
+    """Obtiene todos los proveedores usando sp_ObtenerProveedores"""
     conn = get_connection()
     proveedores = []
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id_proveedor, nombre, telefono, direccion, correo FROM Proveedores ORDER BY id_proveedor DESC")
+        cursor.execute("EXEC sp_ObtenerProveedores")
+        
         for r in cursor.fetchall():
             proveedores.append({
                 "id": r.id_proveedor,
@@ -299,13 +288,12 @@ def obtener_proveedores_todos():
 
 
 def agregar_proveedor(nombre, telefono, direccion, correo):
+    """Agrega proveedor usando sp_AgregarProveedor"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO Proveedores (nombre, telefono, direccion, correo)
-            VALUES (?, ?, ?, ?)
-        """, (nombre, telefono, direccion, correo))
+        cursor.execute("EXEC sp_AgregarProveedor @nombre=?, @telefono=?, @direccion=?, @correo=?",
+                      (nombre, telefono, direccion, correo))
         conn.commit()
         return True
     except Exception as e:
@@ -316,17 +304,16 @@ def agregar_proveedor(nombre, telefono, direccion, correo):
 
 
 def obtener_proveedor_por_id(id_proveedor):
+    """Obtiene proveedor por ID usando sp_ObtenerProveedorPorId"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id_proveedor, nombre, telefono, direccion, correo
-            FROM Proveedores
-            WHERE id_proveedor = ?
-        """, (id_proveedor,))
+        cursor.execute("EXEC sp_ObtenerProveedorPorId @id_proveedor=?", (id_proveedor,))
+        
         r = cursor.fetchone()
         if not r:
             return None
+            
         return {
             "id": r.id_proveedor,
             "nombre": r.nombre,
@@ -339,14 +326,14 @@ def obtener_proveedor_por_id(id_proveedor):
 
 
 def actualizar_proveedor(id_proveedor, nombre, telefono, direccion, correo):
+    """Actualiza proveedor usando sp_ActualizarProveedor"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
         cursor.execute("""
-            UPDATE Proveedores
-            SET nombre=?, telefono=?, direccion=?, correo=?
-            WHERE id_proveedor=?
-        """, (nombre, telefono, direccion, correo, id_proveedor))
+            EXEC sp_ActualizarProveedor 
+                @id_proveedor=?, @nombre=?, @telefono=?, @direccion=?, @correo=?
+        """, (id_proveedor, nombre, telefono, direccion, correo))
         conn.commit()
         return True
     except Exception as e:
@@ -357,10 +344,11 @@ def actualizar_proveedor(id_proveedor, nombre, telefono, direccion, correo):
 
 
 def eliminar_proveedor(id_proveedor):
+    """Elimina proveedor usando sp_EliminarProveedor"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM Proveedores WHERE id_proveedor = ?", (id_proveedor,))
+        cursor.execute("EXEC sp_EliminarProveedor @id_proveedor=?", (id_proveedor,))
         conn.commit()
         return True
     except Exception as e:
@@ -375,29 +363,37 @@ def eliminar_proveedor(id_proveedor):
 # =====================================================
 
 def obtener_clientes():
+    """Obtiene todos los clientes usando sp_ObtenerClientes"""
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id_cliente, nombre, telefono, direccion, correo FROM Clientes ORDER BY id_cliente DESC")
-    rows = cursor.fetchall()
-    conn.close()
-    return [
-        {"id": r.id_cliente, "nombre": r.nombre, "telefono": r.telefono, "direccion": r.direccion, "correo": r.correo}
-        for r in rows
-    ]
+    clientes = []
+    try:
+        cursor = conn.cursor()
+        cursor.execute("EXEC sp_ObtenerClientes")
+        
+        for r in cursor.fetchall():
+            clientes.append({
+                "id": r.id_cliente,
+                "nombre": r.nombre,
+                "telefono": r.telefono,
+                "direccion": r.direccion,
+                "correo": r.correo
+            })
+    finally:
+        conn.close()
+    return clientes
 
 
 def obtener_cliente_por_id(id_cliente):
+    """Obtiene cliente por ID usando sp_ObtenerClientePorId"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id_cliente, nombre, telefono, direccion, correo
-            FROM Clientes
-            WHERE id_cliente = ?
-        """, (id_cliente,))
+        cursor.execute("EXEC sp_ObtenerClientePorId @id_cliente=?", (id_cliente,))
+        
         row = cursor.fetchone()
         if not row:
             return None
+            
         return {
             "id": row.id_cliente,
             "nombre": row.nombre,
@@ -410,13 +406,12 @@ def obtener_cliente_por_id(id_cliente):
 
 
 def agregar_cliente(nombre, telefono, direccion, correo):
+    """Agrega cliente usando sp_AgregarCliente"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO Clientes (nombre, telefono, direccion, correo)
-            VALUES (?, ?, ?, ?)
-        """, (nombre, telefono, direccion, correo))
+        cursor.execute("EXEC sp_AgregarCliente @nombre=?, @telefono=?, @direccion=?, @correo=?",
+                      (nombre, telefono, direccion, correo))
         conn.commit()
         return True
     except Exception as e:
@@ -425,16 +420,15 @@ def agregar_cliente(nombre, telefono, direccion, correo):
     finally:
         conn.close()
 
-
 def actualizar_cliente(id_cliente, nombre, telefono, direccion, correo):
+    """Actualiza cliente usando sp_ActualizarCliente"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
         cursor.execute("""
-            UPDATE Clientes
-            SET nombre = ?, telefono = ?, direccion = ?, correo = ?
-            WHERE id_cliente = ?
-        """, (nombre, telefono, direccion, correo, id_cliente))
+            EXEC sp_ActualizarCliente 
+                @id_cliente=?, @nombre=?, @telefono=?, @direccion=?, @correo=?
+        """, (id_cliente, nombre, telefono, direccion, correo))
         conn.commit()
         return True
     except Exception as e:
@@ -445,10 +439,11 @@ def actualizar_cliente(id_cliente, nombre, telefono, direccion, correo):
 
 
 def eliminar_cliente(id_cliente):
+    """Elimina cliente usando sp_EliminarCliente"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM Clientes WHERE id_cliente = ?", (id_cliente,))
+        cursor.execute("EXEC sp_EliminarCliente @id_cliente=?", (id_cliente,))
         conn.commit()
         return True
     except Exception as e:
@@ -463,18 +458,13 @@ def eliminar_cliente(id_cliente):
 # =====================================================
 
 def obtener_facturas():
+    """Obtiene todas las facturas usando sp_ObtenerFacturas"""
     conn = get_connection()
     facturas = []
     try:
         cursor = conn.cursor()
-        query = """
-            SELECT f.id_factura, c.nombre AS cliente, 
-                   f.fecha_factura, f.total, f.tipo_factura, f.observaciones
-            FROM Facturas f
-            INNER JOIN Clientes c ON f.id_cliente = c.id_cliente
-            ORDER BY f.id_factura DESC
-        """
-        cursor.execute(query)
+        cursor.execute("EXEC sp_ObtenerFacturas")
+        
         for row in cursor.fetchall():
             facturas.append({
                 "id": row.id_factura,
@@ -490,6 +480,7 @@ def obtener_facturas():
 
 
 def agregar_factura(cliente_id, fecha, total):
+    """Agrega factura (método simplificado, considera usar sp_RegistrarFactura completo)"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -510,6 +501,7 @@ def agregar_factura(cliente_id, fecha, total):
 
 
 def agregar_detalle_factura(factura_id, producto_id, cantidad, precio):
+    """Agrega detalle de factura (método simplificado)"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -524,22 +516,19 @@ def agregar_detalle_factura(factura_id, producto_id, cantidad, precio):
     finally:
         conn.close()
 
-
 def obtener_factura_por_id(id_factura):
+    """Obtiene factura por ID usando sp_ObtenerFacturaPorId"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT f.id_factura, c.nombre AS cliente, f.fecha_factura, f.total, 
-                   f.tipo_factura, f.observaciones
-            FROM Facturas f
-            INNER JOIN Clientes c ON f.id_cliente = c.id_cliente
-            WHERE f.id_factura = ?
-        """, (id_factura,))
+        cursor.execute("EXEC sp_ObtenerFacturaPorId @id_factura=?", (id_factura,))
+        
+        # Primera consulta: encabezado
         row = cursor.fetchone()
         if not row:
             return None
-        return {
+            
+        factura = {
             "id": row.id_factura,
             "cliente": row.cliente,
             "fecha": row.fecha_factura.strftime("%d/%m/%Y %H:%M"),
@@ -547,74 +536,54 @@ def obtener_factura_por_id(id_factura):
             "tipo": row.tipo_factura,
             "observaciones": row.observaciones
         }
+        
+        return factura
     finally:
         conn.close()
+
 
 
 def obtener_detalles_factura(id_factura):
+    """Obtiene detalles de factura (segunda parte de sp_ObtenerFacturaPorId)"""
     conn = get_connection()
+    detalles = []
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT p.nombre AS producto, d.cantidad, d.precio_unitario
-            FROM Detalle_Factura d
-            INNER JOIN Productos p ON d.id_producto = p.id_producto
-            WHERE d.id_factura = ?
-        """, (id_factura,))
-        rows = cursor.fetchall()
-        return [
-            {
+        # Ejecutar el procedimiento completo
+        cursor.execute("EXEC sp_ObtenerFacturaPorId @id_factura=?", (id_factura,))
+        
+        # Saltar el primer resultset (encabezado)
+        cursor.nextset()
+        
+        # Obtener el segundo resultset (detalles)
+        for r in cursor.fetchall():
+            detalles.append({
                 "producto": r.producto,
-                "cantidad": r.cantidad,
+                "cantidad": float(r.cantidad),
                 "precio_unitario": float(r.precio_unitario),
-                "subtotal": float(r.cantidad * r.precio_unitario)
-            }
-            for r in rows
-        ]
+                "subtotal": float(r.subtotal)
+            })
     finally:
         conn.close()
+    return detalles
 
 # =====================================================
 #   REPORTES / VENTAS
 # =====================================================
 
 def obtener_ventas(fecha_inicio=None, fecha_fin=None, id_cliente=None):
-    """
-    Retorna una lista de facturas (ventas) con filtros opcionales:
-    - fecha_inicio: YYYY-MM-DD
-    - fecha_fin: YYYY-MM-DD
-    - id_cliente: int
-    """
+    """Obtiene ventas con filtros usando sp_ObtenerVentas"""
     conn = get_connection()
     ventas = []
     try:
         cursor = conn.cursor()
-        query = """
-            SELECT f.id_factura, c.nombre AS cliente, 
-                   f.fecha_factura, f.total, f.tipo_factura, f.observaciones
-            FROM Facturas f
-            INNER JOIN Clientes c ON f.id_cliente = c.id_cliente
-            WHERE f.tipo_factura = 'Venta'
-        """
-        params = []
-
-        # Filtro por fecha
-        if fecha_inicio:
-            query += " AND f.fecha_factura >= ?"
-            params.append(fecha_inicio)
-        if fecha_fin:
-            query += " AND f.fecha_factura <= ?"
-            params.append(fecha_fin)
-
-        # Filtro por cliente
-        if id_cliente:
-            query += " AND f.id_cliente = ?"
-            params.append(id_cliente)
-
-        query += " ORDER BY f.fecha_factura DESC"
-
-        cursor.execute(query, params)
-
+        cursor.execute("""
+            EXEC sp_ObtenerVentas 
+                @fecha_inicio=?, 
+                @fecha_fin=?, 
+                @id_cliente=?
+        """, (fecha_inicio, fecha_fin, id_cliente))
+        
         for row in cursor.fetchall():
             ventas.append({
                 "id": row.id_factura,
@@ -628,62 +597,63 @@ def obtener_ventas(fecha_inicio=None, fecha_fin=None, id_cliente=None):
     return ventas
 
 
+
 # =====================================================
 #   MOVIMIENTOS DE INVENTARIO
 # =====================================================
 
 def agregar_movimiento(id_producto, tipo_movimiento, cantidad, observaciones):
+    """Registra movimiento usando sp_RegistrarMovimiento con OUTPUT"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-
-        # Obtener stock actual y mínimo
-        cursor.execute("SELECT stock_actual, stock_minimo FROM Productos WHERE id_producto = ?", (id_producto,))
-        row = cursor.fetchone()
-        if not row:
-            return False, "Producto no encontrado"
-        stock_actual = float(row.stock_actual)
-        stock_minimo = float(row.stock_minimo)
-
-        # Validación: no permitir salida mayor al stock disponible
-        if tipo_movimiento == "Salida" and cantidad > stock_actual:
-            return False, f"No se puede registrar la salida. Stock disponible: {stock_actual}"
-
-        # Registrar movimiento
+        
+        # Ejecutar procedimiento con parámetro OUTPUT
         cursor.execute("""
-            INSERT INTO Movimientos_Inventario (id_producto, tipo_movimiento, cantidad, observaciones)
-            VALUES (?, ?, ?, ?)
+            DECLARE @mensaje NVARCHAR(500)
+            EXEC sp_RegistrarMovimiento 
+                @id_producto=?, 
+                @tipo_movimiento=?, 
+                @cantidad=?, 
+                @observaciones=?,
+                @mensaje_salida=@mensaje OUTPUT
+            SELECT @mensaje
         """, (id_producto, tipo_movimiento, cantidad, observaciones))
-
-        # Actualizar stock
-        nuevo_stock = stock_actual - cantidad if tipo_movimiento == "Salida" else stock_actual + cantidad
-        cursor.execute("UPDATE Productos SET stock_actual = ? WHERE id_producto = ?", (nuevo_stock, id_producto))
-
-        # Aviso si stock por debajo del mínimo
-        mensaje_aviso = ""
-        if tipo_movimiento == "Salida" and nuevo_stock <= stock_minimo:
-            mensaje_aviso = f"¡Atención! Stock actual ({nuevo_stock}) ha llegado al mínimo ({stock_minimo})."
-
+        
+        # Obtener mensaje de salida
+        mensaje = cursor.fetchone()[0]
         conn.commit()
-        return True, mensaje_aviso or "Movimiento registrado correctamente"
+        
+        # Retornar True y el mensaje
+        return True, mensaje
+        
+    except Exception as e:
+        error_msg = str(e)
+        print("Error al registrar movimiento:", error_msg)
+        
+        # Si el error viene del procedimiento, extraer el mensaje
+        if "Stock insuficiente" in error_msg or "bajo mínimo" in error_msg:
+            return False, error_msg
+        
+        return False, "Error al registrar el movimiento"
     finally:
         conn.close()
 
 
 
-def obtener_movimientos():
+def obtener_movimientos(fecha_inicio=None, fecha_fin=None, tipo_movimiento=None):
+    """Obtiene movimientos con filtros usando sp_ObtenerMovimientos"""
     conn = get_connection()
     movimientos = []
     try:
         cursor = conn.cursor()
-        query = """
-            SELECT m.id_movimiento, p.nombre AS producto, m.tipo_movimiento, m.cantidad,
-                   m.fecha_movimiento, m.observaciones
-            FROM Movimientos_Inventario m
-            INNER JOIN Productos p ON m.id_producto = p.id_producto
-            ORDER BY m.fecha_movimiento DESC
-        """
-        cursor.execute(query)
+        cursor.execute("""
+            EXEC sp_ObtenerMovimientos 
+                @fecha_inicio=?, 
+                @fecha_fin=?, 
+                @tipo_movimiento=?
+        """, (fecha_inicio, fecha_fin, tipo_movimiento))
+        
         for row in cursor.fetchall():
             movimientos.append({
                 "id": row.id_movimiento,
