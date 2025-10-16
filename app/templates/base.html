@@ -29,20 +29,36 @@
           </a>
         </li>
 
-        {# Las siguientes secciones se habilitarán más adelante #}
-        {# 
         <li class="nav-item">
-          <a href="{{ url_for('main.listar_movimientos') }}" class="nav-link">
-            <i class="bi bi-arrow-left-right fs-5"></i> <span>Movimientos</span>
+          <a href="{{ url_for('main.listar_categorias') }}" class="nav-link">
+            <i class="bi bi-tags fs-5"></i> <span>Categorías</span>
           </a>
         </li>
-
         <li class="nav-item">
-          <a href="{{ url_for('main.reportes') }}" class="nav-link">
-            <i class="bi bi-graph-up fs-5"></i> <span>Reportes</span>
+          <a href="{{ url_for('main.listar_proveedores') }}" class="nav-link">
+            <i class="bi bi-truck fs-5"></i> <span>Proveedores</span>
           </a>
         </li>
-        #}
+        <li class="nav-item">
+          <a href="{{ url_for('main.listar_clientes') }}" class="nav-link">
+            <i class="bi bi-people fs-5"></i> <span>Clientes</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('main.listar_facturas') }}">
+            <i class="bi bi-receipt"></i> Facturas
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('main.reportes_ventas') }}">
+            <i class="bi bi-bar-chart-line"></i> Reportes de Ventas
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('main.listar_movimientos') }}">
+            <i class="bi bi-arrow-left-right"></i> Movimientos de Inventario
+          </a>
+        </li>
 
         <li class="nav-item mt-auto">
           <a href="#" class="nav-link logout">

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Factura #{{ factura.id }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Factura #{{ factura.id }}</h2>
+    <p><strong>Cliente:</strong> {{ factura.cliente }}</p>
+    <p><strong>Fecha:</strong> {{ factura.fecha }}</p>
+    <p><strong>Tipo:</strong> {{ factura.tipo }}</p>
+    <p><strong>Observaciones:</strong> {{ factura.observaciones or '—' }}</p>
+
+    <hr>
+
+    <h4>Detalles</h4>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Precio Unitario (S/)</th>
+                <th>Subtotal (S/)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in detalles %}
+            <tr>
+                <td>{{ d.producto }}</td>
+                <td>{{ d.cantidad }}</td>
+                <td>{{ "%.2f"|format(d.precio_unitario) }}</td>
+                <td>{{ "%.2f"|format(d.subtotal) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="text-end">
+        <h4>Total: S/ {{ "%.2f"|format(factura.total) }}</h4>
+    </div>
+
+    <a href="{{ url_for('main.listar_facturas') }}" class="btn btn-secondary mt-3">↩ Volver</a>
+</div>
+{% endblock %}

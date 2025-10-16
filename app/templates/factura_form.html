@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Nueva Factura{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">🧾 Nueva Factura</h2>
+
+    <form action="{{ url_for('main.nueva_factura') }}" method="POST" id="facturaForm">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="cliente_id" class="form-label">Cliente</label>
+                <select name="cliente_id" id="cliente_id" class="form-select" required>
+                    <option value="">-- Selecciona un cliente --</option>
+                    {% for cliente in clientes %}
+                        <option value="{{ cliente.id }}">{{ cliente.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label for="fecha" class="form-label">Fecha</label>
+                <input type="date" name="fecha" id="fecha" class="form-control" value="{{ fecha_actual }}" required>
+            </div>
+        </div>
+
+        <hr>
+
+        <h4>🛒 Detalles de Productos</h4>
+
+        <div id="detalle-container">
+            <div class="detalle-item row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">Producto</label>
+                    <select class="form-select producto" required>
+                        <option value="">-- Selecciona un producto --</option>
+                        {% for producto in productos %}
+                            <option value="{{ producto.id }}" data-precio="{{ producto.precio }}">
+                                {{ producto.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Cantidad</label>
+                    <input type="number" class="form-control cantidad" min="1" value="1" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Precio Unitario</label>
+                    <input type="number" class="form-control precio" step="0.01" readonly>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Subtotal</label>
+                    <input type="number" class="form-control subtotal" step="0.01" readonly>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="button" class="btn btn-danger w-100 eliminar">Eliminar</button>
+                </div>
+            </div>
+        </div>
+
+        <button type="button" id="agregar" class="btn btn-secondary mb-3">➕ Agregar Producto</button>
+
+        <div class="text-end">
+            <h4>Total: S/ <span id="total">0.00</span></h4>
+            <input type="hidden" name="total" id="input_total" value="0">
+        </div>
+
+        <button type="submit" class="btn btn-success mt-3">💾 Guardar Factura</button>
+        <a href="{{ url_for('main.listar_facturas') }}" class="btn btn-secondary mt-3">↩ Volver</a>
+    </form>
+</div>
+
+<script>
+// === Funcionalidad dinámica del formulario ===
+
+document.addEventListener("DOMContentLoaded", function() {
+    const detalleContainer = document.getElementById("detalle-container");
+    const agregarBtn = document.getElementById("agregar");
+    const totalDisplay = document.getElementById("total");
+    const totalInput = document.getElementById("input_total");
+
+    function actualizarTotales() {
+        let total = 0;
+        document.querySelectorAll(".detalle-item").forEach(item => {
+            const cantidad = parseFloat(item.querySelector(".cantidad").value) || 0;
+            const precio = parseFloat(item.querySelector(".precio").value) || 0;
+            const subtotal = cantidad * precio;
+            item.querySelector(".subtotal").value = subtotal.toFixed(2);
+            total += subtotal;
+        });
+        totalDisplay.textContent = total.toFixed(2);
+        totalInput.value = total.toFixed(2);
+    }
+
+    function actualizarPrecios(select) {
+        const precio = select.selectedOptions[0].getAttribute("data-precio");
+        const parent = select.closest(".detalle-item");
+        parent.querySelector(".precio").value = precio || 0;
+        actualizarTotales();
+    }
+
+    detalleContainer.addEventListener("input", function(e) {
+        if (e.target.classList.contains("cantidad")) {
+            actualizarTotales();
+        }
+    });
+
+    detalleContainer.addEventListener("change", function(e) {
+        if (e.target.classList.contains("producto")) {
+            actualizarPrecios(e.target);
+        }
+    });
+
+    detalleContainer.addEventListener("click", function(e) {
+        if (e.target.classList.contains("eliminar")) {
+            e.target.closest(".detalle-item").remove();
+            actualizarTotales();
+        }
+    });
+
+    agregarBtn.addEventListener("click", function() {
+        const item = detalleContainer.firstElementChild.cloneNode(true);
+        item.querySelectorAll("input").forEach(i => i.value = "");
+        item.querySelector("select").selectedIndex = 0;
+        detalleContainer.appendChild(item);
+    });
+
+    // Antes de enviar el formulario, armar el array "detalles[]"
+    document.getElementById("facturaForm").addEventListener("submit", function(e) {
+        document.querySelectorAll("input[name='detalles[]']").forEach(n => n.remove());
+        document.querySelectorAll(".detalle-item").forEach(item => {
+            const producto = item.querySelector(".producto").value;
+            const cantidad = item.querySelector(".cantidad").value;
+            const precio = item.querySelector(".precio").value;
+            const hidden = document.createElement("input");
+            hidden.type = "hidden";
+            hidden.name = "detalles[]";
+            hidden.value = `${producto}|${cantidad}|${precio}`;
+            this.appendChild(hidden);
+        });
+    });
+});
+</script>
+{% endblock %}
