@@ -1,45 +1,128 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container">
-  <div class="text-center my-5">
-    <i class="bi bi-basket text-success" style="font-size: 4rem;"></i>
-    <h1 class="mt-3 fw-bold">Bienvenido al Sistema de Inventario Agrícola</h1>
-    <p class="lead text-muted">Gestione eficientemente los productos, proveedores, clientes y movimientos de su microempresa cerealera.</p>
+<div class="container py-1">
+  <!-- Encabezado centralizado -->
+  <div class="text-center mb-5">
+    <div class="mb-4">
+      <img src="{{ url_for('static', filename='../static/img/baner.png') }}" 
+          class="img-fluid rounded-3 shadow-sm" 
+          alt="Banner del sistema de inventario agrícola">
+    </div>
+    <h1 class="display-5 fw-bold text-dark">Sistema de Inventario Agrícola</h1>
+    <p class="lead text-muted mt-3 px-md-5">
+      Gestione eficientemente productos, proveedores, clientes y movimientos de su microempresa cerealera.
+    </p>
   </div>
 
-  <div class="row text-center">
-    <div class="col-md-4 mb-4">
-      <div class="card shadow-sm border-0 h-100">
-        <div class="card-body">
-          <i class="bi bi-box-seam text-primary" style="font-size: 2.5rem;"></i>
-          <h5 class="mt-3">Gestión de Productos</h5>
-          <p class="text-muted">Registre y controle los cereales disponibles, precios y stock mínimo.</p>
-          <a href="{{ url_for('main.listar_productos') }}" class="btn btn-outline-primary btn-sm">Ver productos</a>
+  <!-- Cuadrícula de módulos -->
+  <div class="row g-4 justify-content-center">
+    <!-- Productos -->
+    <div class="col-12 col-md-6 col-lg-3">
+      <a href="{{ url_for('main.listar_productos') }}" class="text-decoration-none" aria-label="Gestionar productos">
+        <div class="card h-100 shadow-sm border-0 rounded-4 transition-card">
+          <div class="card-body d-flex flex-column align-items-center text-center p-4">
+            <div class="icon-circle bg-info bg-opacity-10 text-info mb-3">
+              <i class="bi bi-box-seam fs-2"></i>
+            </div>
+            <h5 class="card-title fw-semibold text-dark">Productos</h5>
+            <p class="card-text text-muted small mt-2">
+              Registre cereales, precios y niveles de stock.
+            </p>
+            <div class="mt-auto pt-3">
+              <span class="btn btn-sm btn-outline-info rounded-pill px-3">Ver productos</span>
+            </div>
+          </div>
         </div>
-      </div>
+      </a>
     </div>
 
-    <div class="col-md-4 mb-4">
-      <div class="card shadow-sm border-0 h-100">
-        <div class="card-body">
-          <i class="bi bi-people text-success" style="font-size: 2.5rem;"></i>
-          <h5 class="mt-3">Clientes y Ventas</h5>
-          <p class="text-muted">Gestione las facturas y los clientes frecuentes de la microempresa.</p>
-          <button class="btn btn-outline-success btn-sm" disabled>Disponible pronto</button>
+    <!-- Ventas -->
+    <div class="col-12 col-md-6 col-lg-3">
+      <a href="{{ url_for('main.listar_ventas') }}" class="text-decoration-none" aria-label="Gestionar ventas">
+        <div class="card h-100 shadow-sm border-0 rounded-4 transition-card">
+          <div class="card-body d-flex flex-column align-items-center text-center p-4">
+            <div class="icon-circle bg-warning bg-opacity-10 text-warning mb-3">
+              <i class="bi bi-receipt fs-2"></i>
+            </div>
+            <h5 class="card-title fw-semibold text-dark">Ventas</h5>
+            <p class="card-text text-muted small mt-2">
+              Registre facturas y controle sus ventas.
+            </p>
+            <div class="mt-auto pt-3">
+              <span class="btn btn-sm btn-outline-warning rounded-pill px-3">Ver ventas</span>
+            </div>
+          </div>
         </div>
-      </div>
+      </a>
     </div>
 
-    <div class="col-md-4 mb-4">
-      <div class="card shadow-sm border-0 h-100">
-        <div class="card-body">
-          <i class="bi bi-bar-chart-line text-warning" style="font-size: 2.5rem;"></i>
-          <h5 class="mt-3">Reportes</h5>
-          <p class="text-muted">Visualice estadísticas de ventas, stock y rendimiento del inventario.</p>
-          <button class="btn btn-outline-warning btn-sm" disabled>Disponible pronto</button>
+    <!-- Reabastecer -->
+    <div class="col-12 col-md-6 col-lg-3">
+      <a href="{{ url_for('main.reabastecer_inventario') }}" class="text-decoration-none" aria-label="Reabastecer inventario">
+        <div class="card h-100 shadow-sm border-0 rounded-4 transition-card">
+          <div class="card-body d-flex flex-column align-items-center text-center p-4">
+            <div class="icon-circle bg-success bg-opacity-10 text-success mb-3">
+              <i class="bi bi-truck fs-2"></i>
+            </div>
+            <h5 class="card-title fw-semibold text-dark">Reabastecer</h5>
+            <p class="card-text text-muted small mt-2">
+              Registre entradas de stock desde proveedores.
+            </p>
+            <div class="mt-auto pt-3">
+              <span class="btn btn-sm btn-success rounded-pill px-3 text-white">Reabastecer</span>
+            </div>
+          </div>
         </div>
-      </div>
+      </a>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="col-12 col-md-6 col-lg-3">
+      <a href="{{ url_for('main.dashboard') }}" class="text-decoration-none" aria-label="Ir al dashboard">
+        <div class="card h-100 shadow-sm border-0 rounded-4 transition-card">
+          <div class="card-body d-flex flex-column align-items-center text-center p-4">
+            <div class="icon-circle bg-primary bg-opacity-10 text-primary mb-3">
+              <i class="bi bi-graph-up fs-2"></i>
+            </div>
+            <h5 class="card-title fw-semibold text-dark">Dashboard</h5>
+            <p class="card-text text-muted small mt-2">
+              Métricas clave: stock, ventas y tendencias.
+            </p>
+            <div class="mt-auto pt-3">
+              <span class="btn btn-sm btn-outline-primary rounded-pill px-3">Ver dashboard</span>
+            </div>
+          </div>
+        </div>
+      </a>
     </div>
   </div>
 </div>
+
+<style>
+  .icon-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .transition-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .transition-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 0.5rem 1.2rem rgba(0, 0, 0, 0.12);
+  }
+
+  .card {
+    border: none;
+  }
+
+  .card:hover .btn {
+    transform: scale(1.05);
+  }
+</style>
 {% endblock %}
