@@ -1,5 +1,7 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from app import models
+from datetime import datetime
+import json
 
 # Definir el blueprint principal
 main_bp = Blueprint('main', __name__)
@@ -209,154 +211,333 @@ def eliminar_proveedor(id):
         flash("❌ No se pudo eliminar el proveedor.")
     return redirect(url_for('main.listar_proveedores'))
 
-
-
 # =====================================================
-#   CLIENTES
+#   VENTAS (TODO INTEGRADO)
 # =====================================================
 
-@main_bp.route("/clientes")
-def listar_clientes():
+@main_bp.route("/ventas")
+def listar_ventas():
+    """Página principal de gestión de ventas y clientes"""
     clientes = models.obtener_clientes()
-    return render_template("clientes.html", clientes=clientes)
+    ventas = models.obtener_ventas()
+    return render_template("ventas.html", 
+                         clientes=clientes, 
+                         ventas=ventas, 
+                         page_title="Gestión de Ventas y Clientes")
 
+def obtener_ventas():
+    """Obtiene todas las ventas usando sp_ObtenerVentas"""
+    conn = get_connection()
+    ventas = []
+    try:
+        cursor = conn.cursor()
+        cursor.execute("EXEC sp_ObtenerVentas")
+        
+        for row in cursor.fetchall():
+            # Manejar valores NULL convirtiéndolos a 0
+            total = row.total if row.total is not None else 0.0
+            
+            ventas.append({
+                "id": row.id_venta,
+                "cliente": row.cliente,
+                "usuario": row.usuario,
+                "fecha": row.fecha_venta.strftime("%d/%m/%Y %H:%M") if row.fecha_venta else "N/A",
+                "total": float(total),
+                "tipo": row.tipo_venta if row.tipo_venta else "Venta",
+                "observaciones": row.observaciones if row.observaciones else ""
+            })
+    except Exception as e:
+        print(f"Error en obtener_ventas: {e}")
+    finally:
+        conn.close()
+    return ventas
 
-@main_bp.route("/clientes/nuevo", methods=["GET", "POST"])
-def nuevo_cliente():
+@main_bp.route("/ventas/nueva", methods=["GET", "POST"])
+def nueva_venta():
+    """Registra una nueva venta usando sp_RegistrarVenta (sin usuario)"""
     if request.method == "POST":
-        nombre = request.form["nombre"]
-        telefono = request.form["telefono"]
-        direccion = request.form["direccion"]
-        correo = request.form["correo"]
-        models.agregar_cliente(nombre, telefono, direccion, correo)
-        return redirect(url_for('main.listar_clientes'))
-    return render_template("cliente_form.html", cliente=None)
+        try:
+            cliente_id = int(request.form["cliente_id"])
+            detalles_json = request.form["detalles"]
+            
+            print("=== DEBUG VENTA ===")
+            print("Cliente ID:", cliente_id)
+            print("Detalles JSON:", detalles_json)
+            
+            # Registrar la venta SIN usuario
+            success, mensaje = models.registrar_venta(cliente_id, detalles_json)
+            
+            print("Resultado:", success, mensaje)
+            print("=== FIN DEBUG ===")
+            
+            if success:
+                flash("✅ Venta registrada correctamente.", "success")
+                return redirect(url_for("main.listar_ventas"))
+            else:
+                flash(f"❌ Error al registrar venta: {mensaje}", "error")
+                
+        except Exception as e:
+            print("Error en nueva_venta:", e)
+            flash(f"❌ Error en el formulario: {str(e)}", "error")
 
+    return redirect(url_for('main.listar_ventas'))
 
-@main_bp.route("/clientes/editar/<int:id>", methods=["GET", "POST"])
-def editar_cliente(id):
-    cliente = models.obtener_cliente_por_id(id)
-    if not cliente:
-        return "Cliente no encontrado", 404
+@main_bp.route("/ventas/<int:id>")
+def ver_venta(id):
+    """Muestra el detalle de una venta usando sp_ObtenerVentaPorId"""
+    venta, detalles = models.obtener_venta_por_id(id)
+    if not venta:
+        flash("❌ Venta no encontrada.", "error")
+        return redirect(url_for('main.listar_ventas'))
 
-    if request.method == "POST":
-        nombre = request.form["nombre"]
-        telefono = request.form["telefono"]
-        direccion = request.form["direccion"]
-        correo = request.form["correo"]
-        models.actualizar_cliente(id, nombre, telefono, direccion, correo)
-        return redirect(url_for("main.listar_clientes"))
-
-    return render_template("cliente_form.html", cliente=cliente)
-
-
-@main_bp.route("/clientes/eliminar/<int:id>")
-def eliminar_cliente(id):
-    models.eliminar_cliente(id)
-    return redirect(url_for("main.listar_clientes"))
-
-
-# =====================================================
-#   FACTURAS
-# =====================================================
-
-@main_bp.route("/facturas")
-def listar_facturas():
-    facturas = models.obtener_facturas()
-    return render_template("facturas.html", facturas=facturas)
-
-from datetime import datetime
-
-@main_bp.route("/facturas/nueva", methods=["GET", "POST"])
-def nueva_factura():
+    # Pasamos la venta específica y sus detalles al template ventas.html
     clientes = models.obtener_clientes()
-    productos = models.obtener_productos()
-
-    if request.method == "POST":
-        cliente_id = request.form["cliente_id"]
-        fecha = request.form["fecha"]
-        total = request.form["total"]
-        detalles = request.form.getlist("detalles[]")
-
-        factura_id = models.agregar_factura(cliente_id, fecha, total)
-
-        for detalle_str in detalles:
-            producto_id, cantidad, precio = detalle_str.split("|")
-            models.agregar_detalle_factura(factura_id, producto_id, cantidad, precio)
-
-        return redirect(url_for("main.listar_facturas"))
-
-    # 👇 Pasamos la fecha actual a la plantilla
-    fecha_actual = datetime.now().strftime("%Y-%m-%d")
-    return render_template("factura_form.html", clientes=clientes, productos=productos, fecha_actual=fecha_actual)
-
-@main_bp.route("/facturas/<int:id>")
-def ver_factura(id):
-    factura = models.obtener_factura_por_id(id)
-    if not factura:
-        return "Factura no encontrada", 404
-
-    detalles = models.obtener_detalles_factura(id)
-    return render_template("factura_detalle.html", factura=factura, detalles=detalles)
-
-
-# =====================================================
-#   REPORTES / VENTAS
-# =====================================================
-
-@main_bp.route("/ventas", methods=["GET", "POST"])
-def reportes_ventas():
-    clientes = models.obtener_clientes()
-    fecha_inicio = request.form.get("fecha_inicio")
-    fecha_fin = request.form.get("fecha_fin")
-    id_cliente = request.form.get("id_cliente")
-
-    # Convertir id_cliente a entero si se seleccionó
-    if id_cliente and id_cliente != "":
-        id_cliente = int(id_cliente)
-    else:
-        id_cliente = None
-
-    ventas = models.obtener_ventas(fecha_inicio, fecha_fin, id_cliente)
-
+    ventas = models.obtener_ventas()  # Para mantener el historial
+    
     return render_template(
-        "reportes_ventas.html",
+        "ventas.html", 
         clientes=clientes,
         ventas=ventas,
-        fecha_inicio=fecha_inicio,
-        fecha_fin=fecha_fin,
-        id_cliente=id_cliente
+        venta_especifica=venta,
+        detalles_venta=detalles,
+        page_title=f"Detalle de Venta #{venta['id']}"
     )
 
+@main_bp.route("/api/ventas/calcular-total", methods=["POST"])
+def calcular_total_venta():
+    """API para calcular el total de una venta en tiempo real"""
+    try:
+        data = request.get_json()
+        detalles = data.get('detalles', [])
+        
+        total = 0
+        for detalle in detalles:
+            cantidad = float(detalle['cantidad'])
+            precio = float(detalle['precio'])
+            total += cantidad * precio
+            
+        return jsonify({"success": True, "total": round(total, 2)})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
-# =====================================================
-#   MOVIMIENTOS DE INVENTARIO
-# =====================================================
 
-@main_bp.route("/movimientos")
-def listar_movimientos():
-    movimientos = models.obtener_movimientos()
-    return render_template("movimientos.html", movimientos=movimientos)
+@main_bp.route("/api/productos_venta")
+def api_productos_venta():
+    """API para obtener productos disponibles para venta"""
+    try:
+        productos = models.obtener_productos_para_venta()
+        return jsonify(productos)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+# Para clientes
+@main_bp.route("/nuevo_cliente", methods=["GET", "POST"])
+def nuevo_cliente():
+    """Crea un nuevo cliente usando sp_AgregarCliente"""
+    if request.method == "POST":
+        nombre = request.form["nombre"]
+        telefono = request.form["telefono"]
+        direccion = request.form["direccion"]
+        correo = request.form["correo"]
+        
+        # Usa el procedimiento almacenado de models.py
+        if models.agregar_cliente(nombre, telefono, direccion, correo):
+            flash("✅ Cliente agregado correctamente.", "success")
+        else:
+            flash("❌ Error al agregar cliente.", "error")
+        return redirect(url_for('main.listar_ventas'))
+    
+    return render_template("cliente_form.html", cliente=None, page_title="Nuevo Cliente")
 
-
-@main_bp.route("/movimientos/nuevo", methods=["GET", "POST"])
-def nuevo_movimiento():
-    productos = models.obtener_productos()
+@main_bp.route("/editar_cliente/<int:id>", methods=["GET", "POST"])
+def editar_cliente(id):
+    """Edita un cliente usando sp_ActualizarCliente"""
+    cliente = models.obtener_cliente_por_id(id)
+    if not cliente:
+        flash("❌ Cliente no encontrado.", "error")
+        return redirect(url_for('main.listar_ventas'))
 
     if request.method == "POST":
-        id_producto = int(request.form.get("id_producto", 0))
-        tipo_movimiento = request.form.get("tipo_movimiento")
-        cantidad = float(request.form.get("cantidad", 0))
-        observaciones = request.form.get("observaciones", "")
-
-        success, mensaje = models.agregar_movimiento(id_producto, tipo_movimiento, cantidad, observaciones)
-        if success:
-            flash(mensaje, "warning" if "¡Atención!" in mensaje else "success")
-            return redirect(url_for("main.listar_movimientos"))
+        nombre = request.form["nombre"]
+        telefono = request.form["telefono"]
+        direccion = request.form["direccion"]
+        correo = request.form["correo"]
+        
+        if models.actualizar_cliente(id, nombre, telefono, direccion, correo):
+            flash("✅ Cliente actualizado correctamente.", "success")
         else:
-            flash(mensaje, "danger")
-            return redirect(url_for("main.nuevo_movimiento"))
+            flash("❌ Error al actualizar cliente.", "error")
+        return redirect(url_for('main.listar_ventas'))
 
+    return render_template("cliente_form.html", cliente=cliente, page_title="Editar Cliente")
 
+@main_bp.route("/eliminar_cliente/<int:id>")
+def eliminar_cliente(id):
+    """Elimina un cliente usando sp_EliminarCliente"""
+    if models.eliminar_cliente(id):
+        flash("🗑️ Cliente eliminado correctamente.", "success")
+    else:
+        flash("❌ No se pudo eliminar el cliente.", "error")
+    return redirect(url_for('main.listar_ventas'))
 
-    return render_template("movimiento_form.html", productos=productos)
+# =====================================================
+#   GRAFICAS
+# =====================================================
+
+@main_bp.route("/dashboard")
+def dashboard():
+    """Dashboard con gráficas del sistema"""
+    # Datos para las gráficas
+    datos = {
+        "total_productos": models.obtener_total_productos(),
+        "total_ventas": models.obtener_total_ventas(),
+        "total_clientes": models.obtener_total_clientes(),
+        "ventas_por_mes": models.obtener_ventas_ultimos_meses(6),
+        "productos_mas_vendidos": models.obtener_productos_mas_vendidos(5),
+        "stock_bajo": models.obtener_productos_stock_bajo()
+    }
+    return render_template("dashboard.html", datos=datos, page_title="Dashboard")
+
+def obtener_total_productos():
+    """Obtiene el total de productos activos"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM Productos WHERE estado = 'Activo'")
+        return cursor.fetchone()[0]
+    finally:
+        conn.close()
+
+def obtener_total_ventas():
+    """Obtiene el total de ventas registradas"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM Ventas")
+        return cursor.fetchone()[0]
+    finally:
+        conn.close()
+
+def obtener_total_clientes():
+    """Obtiene el total de clientes"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM Clientes")
+        return cursor.fetchone()[0]
+    finally:
+        conn.close()
+
+def obtener_ventas_ultimos_meses(meses=6):
+    """Obtiene ventas de los últimos N meses"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 
+                FORMAT(fecha_venta, 'yyyy-MM') as mes,
+                COUNT(*) as cantidad_ventas,
+                SUM(total) as total_ventas
+            FROM Ventas 
+            WHERE fecha_venta >= DATEADD(MONTH, -?, GETDATE())
+            GROUP BY FORMAT(fecha_venta, 'yyyy-MM')
+            ORDER BY mes
+        """, (meses,))
+        
+        resultados = []
+        for row in cursor.fetchall():
+            resultados.append({
+                "mes": row.mes,
+                "cantidad_ventas": row.cantidad_ventas,
+                "total_ventas": float(row.total_ventas) if row.total_ventas else 0.0
+            })
+        return resultados
+    finally:
+        conn.close()
+
+def obtener_productos_mas_vendidos(limite=5):
+    """Obtiene los productos más vendidos"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT TOP (?) 
+                p.nombre,
+                SUM(d.cantidad) as total_vendido,
+                SUM(d.subtotal) as total_ingresos
+            FROM Detalle_venta d
+            INNER JOIN Productos p ON d.id_producto = p.id_producto
+            GROUP BY p.nombre
+            ORDER BY total_vendido DESC
+        """, (limite,))
+        
+        resultados = []
+        for row in cursor.fetchall():
+            resultados.append({
+                "producto": row.nombre,
+                "total_vendido": float(row.total_vendido),
+                "total_ingresos": float(row.total_ingresos) if row.total_ingresos else 0.0
+            })
+        return resultados
+    finally:
+        conn.close()
+
+def obtener_productos_stock_bajo():
+    """Obtiene productos con stock bajo el mínimo"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT nombre, stock_actual, stock_minimo
+            FROM Productos 
+            WHERE estado = 'Activo' AND stock_actual <= stock_minimo
+            ORDER BY (stock_minimo - stock_actual) DESC
+        """)
+        
+        resultados = []
+        for row in cursor.fetchall():
+            resultados.append({
+                "producto": row.nombre,
+                "stock_actual": float(row.stock_actual),
+                "stock_minimo": float(row.stock_minimo),
+                "diferencia": float(row.stock_minimo - row.stock_actual)
+            })
+        return resultados
+    finally:
+        conn.close()
+
+# =====================================================
+#   REABASTECIMIENTO DE INVENTARIO
+# =====================================================
+
+@main_bp.route("/inventario/reabastecer", methods=["GET", "POST"])
+def reabastecer_inventario():
+    """Reabastece el inventario de productos"""
+    productos = models.obtener_productos()
+    producto_seleccionado = request.args.get('producto_id')
+    
+    if request.method == "POST":
+        try:
+            producto_id = int(request.form["producto_id"])
+            cantidad = float(request.form["cantidad"])
+            observaciones = request.form.get("observaciones", "Reabastecimiento de inventario")
+            
+            # Registrar el movimiento de entrada
+            success, mensaje = models.agregar_movimiento(
+                producto_id, 'Entrada', cantidad, observaciones
+            )
+            
+            if success:
+                flash(f"✅ {mensaje}", "success")
+            else:
+                flash(f"❌ {mensaje}", "error")
+                
+            return redirect(url_for('main.reabastecer_inventario'))
+            
+        except Exception as e:
+            flash(f"❌ Error en el formulario: {str(e)}", "error")
+    
+    return render_template("reabastecer.html", 
+                         productos=productos, 
+                         producto_seleccionado=producto_seleccionado,
+                         page_title="Reabastecer Inventario")

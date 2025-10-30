@@ -1,33 +1,5 @@
 from app.db import get_connection
 
-# Obtener todos los productos
-def get_productos():
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id_producto, nombre, stock_actual, precio_unitario FROM Productos")
-    rows = cursor.fetchall()
-    conn.close()
-    return [
-        {"id": r[0], "nombre": r[1], "stock": float(r[2]), "precio": float(r[3])}
-        for r in rows
-    ]
-
-# Insertar nuevo producto
-def insertar_producto(nombre, id_categoria, id_proveedor, unidad, stock, minimo, precio):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO Productos (nombre, id_categoria, id_proveedor, unidad_medida, stock_actual, stock_minimo, precio_unitario)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (nombre, id_categoria, id_proveedor, unidad, stock, minimo, precio))
-    conn.commit()
-    conn.close()
-    return True
-
-
-
-from app.db import get_connection
-
 # =====================================================
 #   PRODUCTOS
 # =====================================================
@@ -161,7 +133,6 @@ def cambiar_estado_producto(id_producto, nuevo_estado):
         return False
     finally:
         conn.close()
-
 
 
 # =====================================================
@@ -454,108 +425,127 @@ def eliminar_cliente(id_cliente):
 
 
 # =====================================================
-#   FACTURAS
+#   VENTAS (ACTUALIZADO de Facturas a Ventas)
 # =====================================================
 
-def obtener_facturas():
-    """Obtiene todas las facturas usando sp_ObtenerFacturas"""
+def obtener_ventas():
+    """Obtiene todas las ventas usando sp_ObtenerVentas (sin usuario)"""
     conn = get_connection()
-    facturas = []
+    ventas = []
     try:
         cursor = conn.cursor()
-        cursor.execute("EXEC sp_ObtenerFacturas")
+        cursor.execute("""
+            SELECT 
+                v.id_venta,
+                c.nombre AS cliente,
+                v.fecha_venta,
+                v.total,
+                v.tipo_venta,
+                v.observaciones
+            FROM Ventas v
+            INNER JOIN Clientes c ON v.id_cliente = c.id_cliente
+            ORDER BY v.fecha_venta DESC
+        """)
         
         for row in cursor.fetchall():
-            facturas.append({
-                "id": row.id_factura,
+            # Manejar valores NULL en total
+            total = row.total if row.total is not None else 0.0
+            
+            # Formatear fecha como string para el template
+            fecha_str = row.fecha_venta.strftime("%d/%m/%Y %H:%M") if row.fecha_venta else "Fecha no disponible"
+            
+            ventas.append({
+                "id": row.id_venta,
                 "cliente": row.cliente,
-                "fecha": row.fecha_factura.strftime("%d/%m/%Y %H:%M"),
-                "total": float(row.total),
-                "tipo": row.tipo_factura,
-                "observaciones": row.observaciones
+                "fecha": fecha_str,  # Ya formateada como string
+                "total": float(total),
+                "tipo": row.tipo_venta if row.tipo_venta is not None else 'Venta',
+                "observaciones": row.observaciones or ''
             })
-    finally:
-        conn.close()
-    return facturas
-
-
-def agregar_factura(cliente_id, fecha, total):
-    """Agrega factura (método simplificado, considera usar sp_RegistrarFactura completo)"""
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO Facturas (id_cliente, fecha_factura, total)
-            VALUES (?, ?, ?)
-        """, (cliente_id, fecha, total))
-        cursor.execute("SELECT SCOPE_IDENTITY()")
-        factura_id = cursor.fetchone()[0]
-        conn.commit()
-        return factura_id
     except Exception as e:
-        print("Error al agregar factura:", e)
-        conn.rollback()
-        return None
+        print("Error en obtener_ventas:", e)
     finally:
         conn.close()
+    return ventas
 
 
-def agregar_detalle_factura(factura_id, producto_id, cantidad, precio):
-    """Agrega detalle de factura (método simplificado)"""
+def registrar_venta(id_cliente, detalle_json):
+    """Registra una venta completa usando sp_RegistrarVenta (sin usuario)"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO Detalle_Factura (id_factura, id_producto, cantidad, precio_unitario)
-            VALUES (?, ?, ?, ?)
-        """, (factura_id, producto_id, cantidad, precio))
+        cursor.execute("EXEC sp_RegistrarVenta @id_cliente=?, @detalle=?", 
+                      (id_cliente, detalle_json))
         conn.commit()
+        return True, "Venta registrada correctamente"
     except Exception as e:
-        print("Error al agregar detalle de factura:", e)
+        print("Error al registrar venta:", e)
         conn.rollback()
+        return False, str(e)
     finally:
         conn.close()
 
-def obtener_factura_por_id(id_factura):
-    """Obtiene factura por ID usando sp_ObtenerFacturaPorId"""
+def obtener_venta_por_id(id_venta):
+    """Obtiene venta por ID usando sp_ObtenerVentaPorId"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("EXEC sp_ObtenerFacturaPorId @id_factura=?", (id_factura,))
+        cursor.execute("EXEC sp_ObtenerVentaPorId @id_venta=?", (id_venta,))
         
         # Primera consulta: encabezado
         row = cursor.fetchone()
         if not row:
-            return None
+            return None, []
             
-        factura = {
-            "id": row.id_factura,
+        # Formatear fecha
+        fecha_str = row.fecha_venta.strftime("%d/%m/%Y %H:%M") if row.fecha_venta else "Fecha no disponible"
+        
+        venta = {
+            "id": row.id_venta,
             "cliente": row.cliente,
-            "fecha": row.fecha_factura.strftime("%d/%m/%Y %H:%M"),
-            "total": float(row.total),
-            "tipo": row.tipo_factura,
-            "observaciones": row.observaciones
+            "fecha": fecha_str,
+            "total": float(row.total) if row.total is not None else 0.0,
+            "tipo": row.tipo_venta or 'Venta',
+            "observaciones": row.observaciones or ''
         }
         
-        return factura
+        # Segunda consulta: detalles
+        cursor.nextset()
+        detalles = []
+        for r in cursor.fetchall():
+            detalles.append({
+                "producto": r.producto,
+                "cantidad": float(r.cantidad),
+                "precio_unitario": float(r.precio_unitario),
+                "subtotal": float(r.subtotal)
+            })
+        
+        return venta, detalles
+        
+    except Exception as e:
+        print("Error en obtener_venta_por_id:", e)
+        return None, []
     finally:
         conn.close()
 
 
-
-def obtener_detalles_factura(id_factura):
-    """Obtiene detalles de factura (segunda parte de sp_ObtenerFacturaPorId)"""
+def obtener_detalles_venta(id_venta):
+    """Obtiene detalles de venta"""
     conn = get_connection()
     detalles = []
     try:
         cursor = conn.cursor()
-        # Ejecutar el procedimiento completo
-        cursor.execute("EXEC sp_ObtenerFacturaPorId @id_factura=?", (id_factura,))
+        cursor.execute("""
+            SELECT 
+                p.nombre AS producto,
+                d.cantidad,
+                d.precio_unitario,
+                d.subtotal
+            FROM Detalle_venta d
+            INNER JOIN Productos p ON d.id_producto = p.id_producto
+            WHERE d.id_venta = ?
+        """, (id_venta,))
         
-        # Saltar el primer resultset (encabezado)
-        cursor.nextset()
-        
-        # Obtener el segundo resultset (detalles)
         for r in cursor.fetchall():
             detalles.append({
                 "producto": r.producto,
@@ -567,18 +557,19 @@ def obtener_detalles_factura(id_factura):
         conn.close()
     return detalles
 
+
 # =====================================================
-#   REPORTES / VENTAS
+#   REPORTES / VENTAS FILTRADAS
 # =====================================================
 
-def obtener_ventas(fecha_inicio=None, fecha_fin=None, id_cliente=None):
-    """Obtiene ventas con filtros usando sp_ObtenerVentas"""
+def obtener_ventas_filtradas(fecha_inicio=None, fecha_fin=None, id_cliente=None):
+    """Obtiene ventas con filtros usando sp_ObtenerVentasFiltradas"""
     conn = get_connection()
     ventas = []
     try:
         cursor = conn.cursor()
         cursor.execute("""
-            EXEC sp_ObtenerVentas 
+            EXEC sp_ObtenerVentasFiltradas 
                 @fecha_inicio=?, 
                 @fecha_fin=?, 
                 @id_cliente=?
@@ -586,9 +577,10 @@ def obtener_ventas(fecha_inicio=None, fecha_fin=None, id_cliente=None):
         
         for row in cursor.fetchall():
             ventas.append({
-                "id": row.id_factura,
+                "id": row.id_venta,
                 "cliente": row.cliente,
-                "fecha": row.fecha_factura.strftime("%d/%m/%Y %H:%M"),
+                "usuario": row.usuario,
+                "fecha": row.fecha_venta.strftime("%d/%m/%Y %H:%M"),
                 "total": float(row.total),
                 "observaciones": row.observaciones
             })
@@ -597,49 +589,68 @@ def obtener_ventas(fecha_inicio=None, fecha_fin=None, id_cliente=None):
     return ventas
 
 
+def obtener_reporte_ventas_por_periodo(fecha_inicio, fecha_fin):
+    """Obtiene reporte de ventas por período usando sp_ReporteVentasPorPeriodo"""
+    conn = get_connection()
+    ventas = []
+    try:
+        cursor = conn.cursor()
+        cursor.execute("EXEC sp_ReporteVentasPorPeriodo @fecha_inicio=?, @fecha_fin=?", 
+                      (fecha_inicio, fecha_fin))
+        
+        for row in cursor.fetchall():
+            ventas.append({
+                "id": row.id_venta,
+                "cliente": row.cliente,
+                "fecha": row.fecha_venta.strftime("%d/%m/%Y"),
+                "total": float(row.total),
+                "cantidad_productos": row.cantidad_productos
+            })
+    finally:
+        conn.close()
+    return ventas
+
 
 # =====================================================
 #   MOVIMIENTOS DE INVENTARIO
 # =====================================================
 
 def agregar_movimiento(id_producto, tipo_movimiento, cantidad, observaciones):
-    """Registra movimiento usando sp_RegistrarMovimiento con OUTPUT"""
+    """Registra movimiento de inventario usando sp_RegistrarMovimientoSimple"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
         
-        # Ejecutar procedimiento con parámetro OUTPUT
-        cursor.execute("""
-            DECLARE @mensaje NVARCHAR(500)
-            EXEC sp_RegistrarMovimiento 
-                @id_producto=?, 
-                @tipo_movimiento=?, 
-                @cantidad=?, 
-                @observaciones=?,
-                @mensaje_salida=@mensaje OUTPUT
-            SELECT @mensaje
-        """, (id_producto, tipo_movimiento, cantidad, observaciones))
-        
-        # Obtener mensaje de salida
-        mensaje = cursor.fetchone()[0]
+        # Ejecutar procedimiento simple
+        cursor.execute("EXEC sp_RegistrarMovimientoSimple @id_producto=?, @tipo_movimiento=?, @cantidad=?, @observaciones=?", 
+                      (id_producto, tipo_movimiento, cantidad, observaciones))
         conn.commit()
         
-        # Retornar True y el mensaje
+        # Obtener el nuevo stock para el mensaje
+        cursor.execute("SELECT stock_actual FROM Productos WHERE id_producto = ?", (id_producto,))
+        nuevo_stock = cursor.fetchone()[0]
+        
+        mensaje = f"✅ Movimiento registrado correctamente. Stock actual: {nuevo_stock}"
         return True, mensaje
         
     except Exception as e:
         error_msg = str(e)
         print("Error al registrar movimiento:", error_msg)
         
-        # Si el error viene del procedimiento, extraer el mensaje
-        if "Stock insuficiente" in error_msg or "bajo mínimo" in error_msg:
-            return False, error_msg
-        
-        return False, "Error al registrar el movimiento"
+        # Mensajes específicos
+        if "Stock insuficiente" in error_msg:
+            # Obtener stock actual para el mensaje
+            cursor.execute("SELECT stock_actual FROM Productos WHERE id_producto = ?", (id_producto,))
+            stock_actual = cursor.fetchone()[0]
+            return False, f"Stock insuficiente. Disponible: {stock_actual}"
+        elif "Tipo de movimiento inválido" in error_msg:
+            return False, "Tipo de movimiento debe ser 'Entrada' o 'Salida'"
+        elif "Producto no encontrado" in error_msg:
+            return False, "Producto no encontrado"
+        else:
+            return False, f"Error al registrar el movimiento: {error_msg}"
     finally:
         conn.close()
-
-
 
 def obtener_movimientos(fecha_inicio=None, fecha_fin=None, tipo_movimiento=None):
     """Obtiene movimientos con filtros usando sp_ObtenerMovimientos"""
@@ -666,3 +677,164 @@ def obtener_movimientos(fecha_inicio=None, fecha_fin=None, tipo_movimiento=None)
     finally:
         conn.close()
     return movimientos
+
+
+# =====================================================
+#   FUNCIONES AUXILIARES
+# =====================================================
+
+def obtener_usuarios():
+    """Obtiene usuarios para dropdowns en ventas"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_usuario, nombre FROM Usuarios WHERE activo = 1 ORDER BY nombre")
+        return [{"id": r.id_usuario, "nombre": r.nombre} for r in cursor.fetchall()]
+    finally:
+        conn.close()
+
+
+def obtener_productos_para_venta():
+    """Obtiene productos activos para ventas"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id_producto, nombre, stock_actual, precio_unitario 
+            FROM Productos 
+            WHERE estado = 'Activo' AND stock_actual > 0
+            ORDER BY nombre
+        """)
+        return [
+            {
+                "id": r.id_producto,
+                "nombre": r.nombre,
+                "stock": float(r.stock_actual),
+                "precio": float(r.precio_unitario)
+            }
+            for r in cursor.fetchall()
+        ]
+    finally:
+        conn.close()
+
+
+# =====================================================
+#   FUNCIONES PARA DASHBOARD
+# =====================================================
+
+def obtener_total_productos():
+    """Obtiene el total de productos activos"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM Productos WHERE estado = 'Activo'")
+        return cursor.fetchone()[0]
+    finally:
+        conn.close()
+
+def obtener_total_ventas():
+    """Obtiene el total de ventas registradas"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM Ventas")
+        return cursor.fetchone()[0]
+    finally:
+        conn.close()
+
+def obtener_total_clientes():
+    """Obtiene el total de clientes"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM Clientes")
+        return cursor.fetchone()[0]
+    finally:
+        conn.close()
+
+def obtener_ventas_ultimos_meses(meses=6):
+    """Obtiene ventas de los últimos N meses"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 
+                FORMAT(fecha_venta, 'yyyy-MM') as mes,
+                COUNT(*) as cantidad_ventas,
+                ISNULL(SUM(total), 0) as total_ventas
+            FROM Ventas 
+            WHERE fecha_venta >= DATEADD(MONTH, -?, GETDATE())
+            GROUP BY FORMAT(fecha_venta, 'yyyy-MM')
+            ORDER BY mes
+        """, (meses,))
+        
+        resultados = []
+        for row in cursor.fetchall():
+            resultados.append({
+                "mes": row.mes,
+                "cantidad_ventas": row.cantidad_ventas,
+                "total_ventas": float(row.total_ventas)
+            })
+        return resultados
+    except Exception as e:
+        print("Error en obtener_ventas_ultimos_meses:", e)
+        return []
+    finally:
+        conn.close()
+
+def obtener_productos_mas_vendidos(limite=5):
+    """Obtiene los productos más vendidos"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT TOP (?) 
+                p.nombre,
+                ISNULL(SUM(d.cantidad), 0) as total_vendido,
+                ISNULL(SUM(d.subtotal), 0) as total_ingresos
+            FROM Detalle_venta d
+            INNER JOIN Productos p ON d.id_producto = p.id_producto
+            GROUP BY p.nombre
+            ORDER BY total_vendido DESC
+        """, (limite,))
+        
+        resultados = []
+        for row in cursor.fetchall():
+            resultados.append({
+                "producto": row.nombre,
+                "total_vendido": float(row.total_vendido),
+                "total_ingresos": float(row.total_ingresos)
+            })
+        return resultados
+    except Exception as e:
+        print("Error en obtener_productos_mas_vendidos:", e)
+        return []
+    finally:
+        conn.close()
+
+def obtener_productos_stock_bajo():
+    """Obtiene productos con stock bajo el mínimo"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT nombre, stock_actual, stock_minimo
+            FROM Productos 
+            WHERE estado = 'Activo' AND stock_actual <= stock_minimo
+            ORDER BY (stock_minimo - stock_actual) DESC
+        """)
+        
+        resultados = []
+        for row in cursor.fetchall():
+            resultados.append({
+                "producto": row.nombre,
+                "stock_actual": float(row.stock_actual),
+                "stock_minimo": float(row.stock_minimo),
+                "diferencia": float(row.stock_minimo - row.stock_actual)
+            })
+        return resultados
+    except Exception as e:
+        print("Error en obtener_productos_stock_bajo:", e)
+        return []
+    finally:
+        conn.close()

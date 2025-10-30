@@ -1,60 +1,85 @@
 {% extends "base.html" %}
 {% block content %}
+
 <div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-person-plus"></i>
+                        {{ page_title }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <!-- Campo Nombre -->
+                        <div class="mb-3">
+                            <label for="nombre" class="form-label">Nombre del Cliente *</label>
+                            <input type="text" class="form-control" id="nombre" name="nombre" 
+                                   value="{{ cliente.nombre if cliente }}" required 
+                                   placeholder="Ingrese el nombre completo del cliente">
+                            <div class="form-text">Nombre completo o razón social del cliente.</div>
+                        </div>
 
-  <h4 class="mb-4">
-    {{ 'Editar Cliente' if cliente is defined and cliente else 'Registrar nuevo cliente' }}
-  </h4>
+                        <!-- Campo Teléfono -->
+                        <div class="mb-3">
+                            <label for="telefono" class="form-label">Teléfono</label>
+                            <input type="text" class="form-control" id="telefono" name="telefono" 
+                                   value="{{ cliente.telefono if cliente }}"
+                                   placeholder="Ej: +51 987 654 321">
+                            <div class="form-text">Número de contacto del cliente.</div>
+                        </div>
 
-  <form method="POST" class="shadow-sm p-4 bg-white rounded">
-    <div class="row g-3">
+                        <!-- Campo Dirección -->
+                        <div class="mb-3">
+                            <label for="direccion" class="form-label">Dirección</label>
+                            <textarea class="form-control" id="direccion" name="direccion" 
+                                      rows="3" placeholder="Dirección completa del cliente">{{ cliente.direccion if cliente }}</textarea>
+                            <div class="form-text">Dirección para envíos o facturación.</div>
+                        </div>
 
-      <div class="col-md-6">
-        <label class="form-label">Nombre completo</label>
-        <input type="text"
-               name="nombre"
-               class="form-control"
-               placeholder="Ejemplo: Juan Pérez"
-               required
-               value="{{ cliente.nombre if cliente is defined and cliente else '' }}">
-      </div>
+                        <!-- Campo Correo -->
+                        <div class="mb-3">
+                            <label for="correo" class="form-label">Correo Electrónico</label>
+                            <input type="email" class="form-control" id="correo" name="correo" 
+                                   value="{{ cliente.correo if cliente }}"
+                                   placeholder="cliente@ejemplo.com">
+                            <div class="form-text">Correo electrónico para notificaciones.</div>
+                        </div>
 
-      <div class="col-md-3">
-        <label class="form-label">Teléfono</label>
-        <input type="text"
-               name="telefono"
-               class="form-control"
-               placeholder="Ejemplo: 987654321"
-               value="{{ cliente.telefono if cliente is defined and cliente else '' }}">
-      </div>
+                        <!-- Botones -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('main.listar_ventas') }}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Volver al listado
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                {% if cliente %}
+                                    <i class="bi bi-check-circle"></i> Actualizar Cliente
+                                {% else %}
+                                    <i class="bi bi-person-plus"></i> Registrar Cliente
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
 
-      <div class="col-md-6">
-        <label class="form-label">Dirección</label>
-        <input type="text"
-               name="direccion"
-               class="form-control"
-               placeholder="Ejemplo: Jr. Principal 123 - Huánuco"
-               value="{{ cliente.direccion if cliente is defined and cliente else '' }}">
-      </div>
-
-      <div class="col-md-6">
-        <label class="form-label">Correo electrónico</label>
-        <input type="email"
-               name="correo"
-               class="form-control"
-               placeholder="Ejemplo: cliente@gmail.com"
-               value="{{ cliente.correo if cliente is defined and cliente else '' }}">
-      </div>
-
-      <div class="col-12 text-end mt-3">
-        <button type="submit" class="btn btn-success">
-          <i class="bi bi-check-circle"></i> Guardar
-        </button>
-        <a href="{{ url_for('main.listar_clientes') }}" class="btn btn-secondary">
-          Cancelar
-        </a>
-      </div>
+            <!-- Información adicional -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-info-circle"></i> Información importante
+                    </h6>
+                    <ul class="small text-muted mb-0">
+                        <li>Los campos marcados con * son obligatorios</li>
+                        <li>La información del cliente se utilizará en facturas y reportes</li>
+                        <li>Puede actualizar la información del cliente en cualquier momento</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
     </div>
-  </form>
 </div>
+
 {% endblock %}

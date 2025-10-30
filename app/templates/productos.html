@@ -38,20 +38,31 @@
       <td>S/. {{ "%.2f"|format(p.precio) }}</td>
       <td>{{ p.estado }}</td>
       <td>
-        <a href="{{ url_for('main.editar_producto', id=p.id) }}" class="btn btn-sm btn-outline-warning" title="Editar">
-          <i class="bi bi-pencil"></i>
-        </a>
-        {% if p.estado == 'Activo' %}
-          <a href="{{ url_for('main.toggle_estado_producto', id=p.id, estado_actual=p.estado) }}"
-             class="btn btn-sm btn-outline-danger" title="Desactivar producto">
-             <i class="bi bi-x-circle"></i>
+        <div class="btn-group btn-group-sm" role="group">
+          <!-- Botón Editar -->
+          <a href="{{ url_for('main.editar_producto', id=p.id) }}" class="btn btn-outline-warning" title="Editar">
+            <i class="bi bi-pencil"></i>
           </a>
-        {% else %}
-          <a href="{{ url_for('main.toggle_estado_producto', id=p.id, estado_actual=p.estado) }}"
-             class="btn btn-sm btn-outline-success" title="Activar producto">
-             <i class="bi bi-check-circle"></i>
+          
+          <!-- Botón Reabastecer -->
+          <a href="{{ url_for('main.reabastecer_inventario') }}?producto_id={{ p.id }}" 
+             class="btn btn-outline-success" title="Reabastecer">
+            <i class="bi bi-plus-circle"></i>
           </a>
-        {% endif %}
+          
+          <!-- Botón Activar/Desactivar -->
+          {% if p.estado == 'Activo' %}
+            <a href="{{ url_for('main.toggle_estado_producto', id=p.id, estado_actual=p.estado) }}"
+               class="btn btn-outline-danger" title="Desactivar producto">
+               <i class="bi bi-x-circle"></i>
+            </a>
+          {% else %}
+            <a href="{{ url_for('main.toggle_estado_producto', id=p.id, estado_actual=p.estado) }}"
+               class="btn btn-outline-success" title="Activar producto">
+               <i class="bi bi-check-circle"></i>
+            </a>
+          {% endif %}
+        </div>
       </td>
     </tr>
     {% endfor %}

@@ -40,24 +40,19 @@
           </a>
         </li>
         <li class="nav-item">
-          <a href="{{ url_for('main.listar_clientes') }}" class="nav-link">
-            <i class="bi bi-people fs-5"></i> <span>Clientes</span>
+          <a class="nav-link" href="{{ url_for('main.listar_ventas') }}">
+            <i class="bi bi-receipt"></i> Ventas
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('main.listar_facturas') }}">
-            <i class="bi bi-receipt"></i> Facturas
-          </a>
+            <a class="nav-link" href="{{ url_for('main.reabastecer_inventario') }}">
+                <i class="bi bi-box-arrow-in-down"></i> Reabastecer
+            </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('main.reportes_ventas') }}">
-            <i class="bi bi-bar-chart-line"></i> Reportes de Ventas
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('main.listar_movimientos') }}">
-            <i class="bi bi-arrow-left-right"></i> Movimientos de Inventario
-          </a>
+            <a class="nav-link" href="{{ url_for('main.dashboard') }}">
+                <i class="bi bi-graph-up"></i> Dashboard
+            </a>
         </li>
 
         <li class="nav-item mt-auto">
