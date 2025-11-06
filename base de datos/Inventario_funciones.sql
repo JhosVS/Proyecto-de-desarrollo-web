@@ -1,5 +1,5 @@
-﻿USE INVENTARIO
-GO
+﻿use INVENTARIO
+go
 
 -- =========================================================
 --                      PROCEDIMIENTOS
@@ -21,7 +21,7 @@ BEGIN
 
     DECLARE @id_producto INT = SCOPE_IDENTITY();
     
-    -- Movimiento con NULL en id_usuario (para futuro)
+    -- Movimiento con NULL en id_usuario
     INSERT INTO Cambios_Inventario (id_producto, tipo_movimiento, cantidad, id_usuario, observaciones)
     VALUES (@id_producto, 'Entrada', @stock_inicial, NULL, 'Stock inicial del producto');
 
@@ -29,163 +29,7 @@ BEGIN
 END;
 GO
 
--- 2. Actualizar stock (sin usar id_usuario)
-CREATE OR ALTER PROCEDURE sp_ActualizarStock
-    @id_producto INT,
-    @tipo_movimiento NVARCHAR(20),
-    @cantidad DECIMAL(10,2),
-    @observaciones NVARCHAR(255) = NULL
-AS
-BEGIN
-    IF @tipo_movimiento = 'Entrada'
-        UPDATE Productos SET stock_actual = stock_actual + @cantidad WHERE id_producto = @id_producto;
-    ELSE IF @tipo_movimiento = 'Salida'
-        UPDATE Productos SET stock_actual = stock_actual - @cantidad WHERE id_producto = @id_producto;
-
-    -- Movimiento con NULL en id_usuario
-    INSERT INTO Cambios_Inventario (id_producto, tipo_movimiento, cantidad, id_usuario, observaciones)
-    VALUES (@id_producto, @tipo_movimiento, @cantidad, NULL, @observaciones);
-
-    PRINT '📦 Movimiento de inventario registrado correctamente.';
-END;
-GO
-
--- 3. Registrar venta (ACTUALIZADO de Facturas a Ventas)
-CREATE OR ALTER PROCEDURE sp_RegistrarVenta
-    @id_cliente INT,
-    @detalle NVARCHAR(MAX)
-AS
-BEGIN
-    SET NOCOUNT ON;
-    BEGIN TRY
-        BEGIN TRANSACTION;
-
-        DECLARE @id_venta INT;
-        DECLARE @total DECIMAL(10,2) = 0;
-
-        -- Calcular el total directamente desde el JSON
-        SELECT @total = SUM(d.cantidad * p.precio_unitario)
-        FROM OPENJSON(@detalle)
-        WITH (
-            id_producto INT,
-            cantidad DECIMAL(10,2)
-        ) d
-        INNER JOIN Productos p ON d.id_producto = p.id_producto;
-
-        -- Insertar la venta
-        INSERT INTO Ventas (id_cliente, id_usuario, total, tipo_venta)
-        VALUES (@id_cliente, NULL, @total, 'Venta');
-
-        SET @id_venta = SCOPE_IDENTITY();
-
-        -- Insertar detalles
-        INSERT INTO Detalle_venta (id_venta, id_producto, cantidad, precio_unitario)
-        SELECT 
-            @id_venta,
-            d.id_producto,
-            d.cantidad,
-            p.precio_unitario
-        FROM OPENJSON(@detalle)
-        WITH (
-            id_producto INT,
-            cantidad DECIMAL(10,2)
-        ) d
-        INNER JOIN Productos p ON d.id_producto = p.id_producto;
-
-        -- Actualizar stock y registrar movimientos
-        INSERT INTO Cambios_Inventario (id_producto, tipo_movimiento, cantidad, observaciones)
-        SELECT 
-            d.id_producto,
-            'Salida',
-            d.cantidad,
-            'Venta #' + CAST(@id_venta AS NVARCHAR(10))
-        FROM OPENJSON(@detalle)
-        WITH (
-            id_producto INT,
-            cantidad DECIMAL(10,2)
-        ) d;
-
-        UPDATE p
-        SET p.stock_actual = p.stock_actual - d.cantidad
-        FROM Productos p
-        INNER JOIN (
-            SELECT id_producto, cantidad
-            FROM OPENJSON(@detalle)
-            WITH (id_producto INT, cantidad DECIMAL(10,2))
-        ) d ON p.id_producto = d.id_producto;
-
-        COMMIT TRANSACTION;
-        PRINT '✅ Venta registrada correctamente. ID: ' + CAST(@id_venta AS NVARCHAR(10));
-    END TRY
-    BEGIN CATCH
-        ROLLBACK TRANSACTION;
-        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
-        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
-        DECLARE @ErrorState INT = ERROR_STATE();
-        RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);
-    END CATCH
-END;
-GO
-
--- 4. Vista de productos bajo mínimo
-CREATE OR ALTER VIEW vw_ProductosBajoMinimo AS
-SELECT 
-    p.id_producto,
-    p.nombre,
-    p.stock_actual,
-    p.stock_minimo,
-    c.nombre AS categoria,
-    pr.nombre AS proveedor
-FROM Productos p
-JOIN Categorias c ON p.id_categoria = c.id_categoria
-JOIN Proveedores pr ON p.id_proveedor = pr.id_proveedor
-WHERE p.stock_actual < p.stock_minimo;
-GO
-
--- 5. Resumen inventario
-CREATE OR ALTER VIEW vw_ResumenInventario AS
-SELECT 
-    p.id_producto,
-    p.nombre AS producto,
-    c.nombre AS categoria,
-    pr.nombre AS proveedor,
-    p.stock_actual,
-    p.stock_minimo,
-    p.unidad_medida,
-    p.precio_unitario,
-    (p.stock_actual * p.precio_unitario) AS valor_total
-FROM Productos p
-JOIN Categorias c ON p.id_categoria = c.id_categoria
-JOIN Proveedores pr ON p.id_proveedor = pr.id_proveedor;
-GO
-
--- ===============================================
---                  TRIGGERS (ACTUALIZADO)
--- ===============================================
-
-CREATE OR ALTER TRIGGER tr_ValidarStock_Venta
-ON Detalle_venta
-FOR INSERT
-AS
-BEGIN
-    IF EXISTS (
-        SELECT 1 
-        FROM inserted i 
-        JOIN Productos p ON i.id_producto = p.id_producto 
-        WHERE i.cantidad > p.stock_actual
-    )
-    BEGIN
-        RAISERROR('❌ Stock insuficiente para completar la venta', 16, 1);
-        ROLLBACK TRANSACTION;
-    END
-END;
-GO
-
--- ============================================================
---  PROCEDIMIENTOS PARA PRODUCTOS
--- ============================================================
-
--- Obtener todos los productos con detalles
+-- 2. Obtener todos los productos con detalles
 CREATE OR ALTER PROCEDURE sp_ObtenerProductos
 AS
 BEGIN
@@ -206,7 +50,7 @@ BEGIN
 END
 GO
 
--- Obtener un producto por ID
+-- 3. Obtener un producto por ID
 CREATE OR ALTER PROCEDURE sp_ObtenerProductoPorId
     @id_producto INT
 AS
@@ -226,7 +70,7 @@ BEGIN
 END
 GO
 
--- Actualizar producto (sin modificar stock)
+-- 4. Actualizar producto (sin modificar stock)
 CREATE OR ALTER PROCEDURE sp_ActualizarProducto
     @id_producto INT,
     @nombre NVARCHAR(100),
@@ -254,7 +98,7 @@ BEGIN
 END
 GO
 
--- Cambiar estado del producto
+-- 5. Cambiar estado del producto
 CREATE OR ALTER PROCEDURE sp_CambiarEstadoProducto
     @id_producto INT,
     @nuevo_estado NVARCHAR(20)
@@ -280,15 +124,6 @@ GO
 -- ============================================================
 --  PROCEDIMIENTOS PARA CATEGORÍAS
 -- ============================================================
-
-CREATE OR ALTER PROCEDURE sp_ObtenerCategoriasSimple
-AS
-BEGIN
-    SELECT id_categoria, nombre
-    FROM Categorias
-    ORDER BY nombre;
-END;
-GO
 
 CREATE OR ALTER PROCEDURE sp_ObtenerCategorias
 AS
@@ -496,7 +331,7 @@ CREATE OR ALTER PROCEDURE sp_EliminarCliente
     @id_cliente INT
 AS
 BEGIN
-    -- Validar que no tenga ventas asociadas (ACTUALIZADO)
+    -- Validar que no tenga ventas asociadas
     IF EXISTS (SELECT 1 FROM Ventas WHERE id_cliente = @id_cliente)
     BEGIN
         RAISERROR('❌ No se puede eliminar. El cliente tiene ventas registradas', 16, 1)
@@ -515,81 +350,6 @@ GO
 -- ============================================================
 --  PROCEDIMIENTOS PARA MOVIMIENTOS DE INVENTARIO
 -- ============================================================
-
-CREATE OR ALTER PROCEDURE sp_RegistrarMovimiento
-    @id_producto INT,
-    @tipo_movimiento NVARCHAR(20),
-    @cantidad DECIMAL(10,2),
-    @observaciones NVARCHAR(255) = NULL,
-    @mensaje_salida NVARCHAR(500) OUTPUT
-AS
-BEGIN
-    SET NOCOUNT ON
-    
-    DECLARE @stock_actual DECIMAL(10,2)
-    DECLARE @stock_minimo DECIMAL(10,2)
-    DECLARE @nuevo_stock DECIMAL(10,2)
-    DECLARE @nombre_producto NVARCHAR(100)
-
-    -- Validar tipo de movimiento
-    IF @tipo_movimiento NOT IN ('Entrada', 'Salida')
-    BEGIN
-        SET @mensaje_salida = '❌ Tipo de movimiento inválido'
-        RAISERROR(@mensaje_salida, 16, 1)
-        RETURN
-    END
-
-    -- Obtener datos del producto
-    SELECT @stock_actual = stock_actual, 
-           @stock_minimo = stock_minimo,
-           @nombre_producto = nombre
-    FROM Productos
-    WHERE id_producto = @id_producto
-
-    IF @nombre_producto IS NULL
-    BEGIN
-        SET @mensaje_salida = '❌ Producto no encontrado'
-        RAISERROR(@mensaje_salida, 16, 1)
-        RETURN
-    END
-
-    -- Validar stock para salidas
-    IF @tipo_movimiento = 'Salida' AND @cantidad > @stock_actual
-    BEGIN
-        SET @mensaje_salida = '❌ Stock insuficiente. Disponible: ' + CAST(@stock_actual AS NVARCHAR(20))
-        RAISERROR(@mensaje_salida, 16, 1)
-        RETURN
-    END
-
-    -- Calcular nuevo stock
-    IF @tipo_movimiento = 'Entrada'
-        SET @nuevo_stock = @stock_actual + @cantidad
-    ELSE
-        SET @nuevo_stock = @stock_actual - @cantidad
-
-    BEGIN TRANSACTION
-
-    -- Registrar movimiento en la NUEVA tabla Cambios_Inventario
-    INSERT INTO Cambios_Inventario (id_producto, tipo_movimiento, cantidad, observaciones)
-    VALUES (@id_producto, @tipo_movimiento, @cantidad, @observaciones)
-
-    -- Actualizar stock
-    UPDATE Productos
-    SET stock_actual = @nuevo_stock
-    WHERE id_producto = @id_producto
-
-    COMMIT TRANSACTION
-
-    -- Mensaje de salida
-    SET @mensaje_salida = '✅ Movimiento registrado. Stock actual: ' + CAST(@nuevo_stock AS NVARCHAR(20))
-    
-    -- Advertencia si está bajo mínimo
-    IF @nuevo_stock <= @stock_minimo
-        SET @mensaje_salida = @mensaje_salida + ' ⚠️ ALERTA: Stock bajo mínimo (' + CAST(@stock_minimo AS NVARCHAR(20)) + ')'
-
-    PRINT @mensaje_salida
-END
-GO
 
 CREATE OR ALTER PROCEDURE sp_RegistrarMovimientoSimple
     @id_producto INT,
@@ -653,7 +413,7 @@ BEGIN
         m.cantidad,
         m.fecha_movimiento,
         m.observaciones
-    FROM Movimientos_Inventario m
+    FROM Cambios_Inventario m
     INNER JOIN Productos p ON m.id_producto = p.id_producto
     WHERE 
         (@fecha_inicio IS NULL OR m.fecha_movimiento >= @fecha_inicio)
@@ -664,25 +424,83 @@ END
 GO
 
 -- ============================================================
---  PROCEDIMIENTOS PARA VENTAS (ACTUALIZADOS)
+--  PROCEDIMIENTOS PARA VENTAS
 -- ============================================================
 
-CREATE OR ALTER PROCEDURE sp_ObtenerVentas
+CREATE OR ALTER PROCEDURE sp_RegistrarVenta
+    @id_cliente INT,
+    @detalle NVARCHAR(MAX)
 AS
 BEGIN
-    SELECT 
-        v.id_venta,
-        c.nombre AS cliente,
-        u.nombre AS usuario,
-        v.fecha_venta,
-        v.total,
-        v.tipo_venta,
-        v.observaciones
-    FROM Ventas v
-    INNER JOIN Clientes c ON v.id_cliente = c.id_cliente
-    INNER JOIN Usuarios u ON v.id_usuario = u.id_usuario
-    ORDER BY v.id_venta DESC
-END
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @id_venta INT;
+        DECLARE @total DECIMAL(10,2) = 0;
+
+        -- Calcular el total directamente desde el JSON
+        SELECT @total = SUM(d.cantidad * p.precio_unitario)
+        FROM OPENJSON(@detalle)
+        WITH (
+            id_producto INT,
+            cantidad DECIMAL(10,2)
+        ) d
+        INNER JOIN Productos p ON d.id_producto = p.id_producto;
+
+        -- Insertar la venta (sin usuario)
+        INSERT INTO Ventas (id_cliente, id_usuario, total, tipo_venta)
+        VALUES (@id_cliente, NULL, @total, 'Venta');
+
+        SET @id_venta = SCOPE_IDENTITY();
+
+        -- Insertar detalles
+        INSERT INTO Detalle_venta (id_venta, id_producto, cantidad, precio_unitario)
+        SELECT 
+            @id_venta,
+            d.id_producto,
+            d.cantidad,
+            p.precio_unitario
+        FROM OPENJSON(@detalle)
+        WITH (
+            id_producto INT,
+            cantidad DECIMAL(10,2)
+        ) d
+        INNER JOIN Productos p ON d.id_producto = p.id_producto;
+
+        -- Actualizar stock y registrar movimientos
+        INSERT INTO Cambios_Inventario (id_producto, tipo_movimiento, cantidad, observaciones)
+        SELECT 
+            d.id_producto,
+            'Salida',
+            d.cantidad,
+            'Venta #' + CAST(@id_venta AS NVARCHAR(10))
+        FROM OPENJSON(@detalle)
+        WITH (
+            id_producto INT,
+            cantidad DECIMAL(10,2)
+        ) d;
+
+        UPDATE p
+        SET p.stock_actual = p.stock_actual - d.cantidad
+        FROM Productos p
+        INNER JOIN (
+            SELECT id_producto, cantidad
+            FROM OPENJSON(@detalle)
+            WITH (id_producto INT, cantidad DECIMAL(10,2))
+        ) d ON p.id_producto = d.id_producto;
+
+        COMMIT TRANSACTION;
+        PRINT '✅ Venta registrada correctamente. ID: ' + CAST(@id_venta AS NVARCHAR(10));
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrorState INT = ERROR_STATE();
+        RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);
+    END CATCH
+END;
 GO
 
 CREATE OR ALTER PROCEDURE sp_ObtenerVentaPorId
@@ -723,13 +541,11 @@ BEGIN
     SELECT 
         v.id_venta,
         c.nombre AS cliente,
-        u.nombre AS usuario,
         v.fecha_venta,
         v.total,
         v.observaciones
     FROM Ventas v
     INNER JOIN Clientes c ON v.id_cliente = c.id_cliente
-    INNER JOIN Usuarios u ON v.id_usuario = u.id_usuario
     WHERE v.tipo_venta = 'Venta'
         AND (@fecha_inicio IS NULL OR v.fecha_venta >= @fecha_inicio)
         AND (@fecha_fin IS NULL OR v.fecha_venta <= @fecha_fin)
@@ -759,5 +575,188 @@ BEGIN
 END
 GO
 
-PRINT '✅ Todos los procedimientos almacenados han sido actualizados correctamente (Facturas → Ventas)'
+-- ============================================================
+--  NUEVOS PROCEDIMIENTOS PARA CONSULTAS DIRECTAS
+-- ============================================================
+
+-- Para obtener lista de ventas (reemplaza consulta directa)
+CREATE OR ALTER PROCEDURE sp_ObtenerVentasLista
+AS
+BEGIN
+    SELECT 
+        v.id_venta,
+        c.nombre AS cliente,
+        v.fecha_venta,
+        v.total,
+        v.tipo_venta,
+        v.observaciones
+    FROM Ventas v
+    INNER JOIN Clientes c ON v.id_cliente = c.id_cliente
+    ORDER BY v.fecha_venta DESC
+END
+GO
+
+-- Para obtener usuarios activos (sin usuario específico)
+CREATE OR ALTER PROCEDURE sp_ObtenerUsuariosActivos
+AS
+BEGIN
+    SELECT id_usuario, nombre 
+    FROM Usuarios 
+    WHERE activo = 1 
+    ORDER BY nombre
+END
+GO
+
+-- Para obtener productos disponibles para venta
+CREATE OR ALTER PROCEDURE sp_ObtenerProductosParaVenta
+AS
+BEGIN
+    SELECT id_producto, nombre, stock_actual, precio_unitario 
+    FROM Productos 
+    WHERE estado = 'Activo' AND stock_actual > 0
+    ORDER BY nombre
+END
+GO
+
+-- Para obtener detalles de una venta específica
+CREATE OR ALTER PROCEDURE sp_ObtenerDetallesVenta
+    @id_venta INT
+AS
+BEGIN
+    SELECT 
+        p.nombre AS producto,
+        d.cantidad,
+        d.precio_unitario,
+        d.subtotal
+    FROM Detalle_venta d
+    INNER JOIN Productos p ON d.id_producto = p.id_producto
+    WHERE d.id_venta = @id_venta
+END
+GO
+
+-- ============================================================
+--  PROCEDIMIENTOS PARA DASHBOARD/REPORTES
+-- ============================================================
+
+CREATE OR ALTER PROCEDURE sp_ObtenerTotalProductos
+AS
+BEGIN
+    SELECT COUNT(*) as total FROM Productos WHERE estado = 'Activo'
+END
+GO
+
+CREATE OR ALTER PROCEDURE sp_ObtenerTotalVentas
+AS
+BEGIN
+    SELECT COUNT(*) as total FROM Ventas
+END
+GO
+
+CREATE OR ALTER PROCEDURE sp_ObtenerTotalClientes
+AS
+BEGIN
+    SELECT COUNT(*) as total FROM Clientes
+END
+GO
+
+CREATE OR ALTER PROCEDURE sp_ObtenerVentasUltimosMeses
+    @meses INT
+AS
+BEGIN
+    SELECT 
+        FORMAT(fecha_venta, 'yyyy-MM') as mes,
+        COUNT(*) as cantidad_ventas,
+        ISNULL(SUM(total), 0) as total_ventas
+    FROM Ventas 
+    WHERE fecha_venta >= DATEADD(MONTH, -@meses, GETDATE())
+    GROUP BY FORMAT(fecha_venta, 'yyyy-MM')
+    ORDER BY mes
+END
+GO
+
+CREATE OR ALTER PROCEDURE sp_ObtenerProductosMasVendidos
+    @limite INT
+AS
+BEGIN
+    SELECT TOP (@limite)
+        p.nombre,
+        ISNULL(SUM(d.cantidad), 0) as total_vendido,
+        ISNULL(SUM(d.subtotal), 0) as total_ingresos
+    FROM Detalle_venta d
+    INNER JOIN Productos p ON d.id_producto = p.id_producto
+    GROUP BY p.nombre
+    ORDER BY total_vendido DESC
+END
+GO
+
+CREATE OR ALTER PROCEDURE sp_ObtenerProductosStockBajo
+AS
+BEGIN
+    SELECT nombre, stock_actual, stock_minimo
+    FROM Productos 
+    WHERE estado = 'Activo' AND stock_actual <= stock_minimo
+    ORDER BY (stock_minimo - stock_actual) DESC
+END
+GO
+
+-- ===============================================
+--                  VISTAS
+-- ===============================================
+
+-- 4. Vista de productos bajo mínimo
+CREATE OR ALTER VIEW vw_ProductosBajoMinimo AS
+SELECT 
+    p.id_producto,
+    p.nombre,
+    p.stock_actual,
+    p.stock_minimo,
+    c.nombre AS categoria,
+    pr.nombre AS proveedor
+FROM Productos p
+JOIN Categorias c ON p.id_categoria = c.id_categoria
+JOIN Proveedores pr ON p.id_proveedor = pr.id_proveedor
+WHERE p.stock_actual < p.stock_minimo;
+GO
+
+-- 5. Resumen inventario
+CREATE OR ALTER VIEW vw_ResumenInventario AS
+SELECT 
+    p.id_producto,
+    p.nombre AS producto,
+    c.nombre AS categoria,
+    pr.nombre AS proveedor,
+    p.stock_actual,
+    p.stock_minimo,
+    p.unidad_medida,
+    p.precio_unitario,
+    (p.stock_actual * p.precio_unitario) AS valor_total
+FROM Productos p
+JOIN Categorias c ON p.id_categoria = c.id_categoria
+JOIN Proveedores pr ON p.id_proveedor = pr.id_proveedor;
+GO
+
+-- ===============================================
+--                  TRIGGERS
+-- ===============================================
+
+CREATE OR ALTER TRIGGER tr_ValidarStock_Venta
+ON Detalle_venta
+FOR INSERT
+AS
+BEGIN
+    IF EXISTS (
+        SELECT 1 
+        FROM inserted i 
+        JOIN Productos p ON i.id_producto = p.id_producto 
+        WHERE i.cantidad > p.stock_actual
+    )
+    BEGIN
+        RAISERROR('❌ Stock insuficiente para completar la venta', 16, 1);
+        ROLLBACK TRANSACTION;
+    END
+END;
+GO
+
+PRINT '✅ Todos los procedimientos almacenados han sido actualizados correctamente'
+PRINT '📊 Total: 36 procedimientos almacenados, 2 vistas y 1 trigger'
 GO

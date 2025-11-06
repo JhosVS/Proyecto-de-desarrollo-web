@@ -54,7 +54,6 @@ def nuevo_producto():
         page_title="Nuevo Producto"
     )
 
-
 # ==========================
 # Editar producto
 # ==========================
@@ -88,7 +87,6 @@ def editar_producto(id):
         page_title="Editar Producto"
     )
 
-
 # ==========================
 # Eliminar producto
 # ==========================
@@ -105,7 +103,6 @@ def toggle_estado_producto(id, estado_actual):
 
     return redirect(url_for('main.listar_productos'))
 
-
 # =====================================================
 #   CATEGORÍAS
 # =====================================================
@@ -114,7 +111,6 @@ def toggle_estado_producto(id, estado_actual):
 def listar_categorias():
     categorias = models.obtener_categorias_todas()
     return render_template('categorias.html', categorias=categorias, page_title="Categorías")
-
 
 @main_bp.route('/categorias/nueva', methods=['GET', 'POST'])
 def nueva_categoria():
@@ -127,7 +123,6 @@ def nueva_categoria():
             flash("❌ Error al agregar categoría.")
         return redirect(url_for('main.listar_categorias'))
     return render_template('categoria_form.html', categoria=None, page_title="Nueva categoría")
-
 
 @main_bp.route('/categorias/editar/<int:id>', methods=['GET', 'POST'])
 def editar_categoria(id):
@@ -147,7 +142,6 @@ def editar_categoria(id):
 
     return render_template('categoria_form.html', categoria=categoria, page_title="Editar categoría")
 
-
 @main_bp.route('/categorias/eliminar/<int:id>')
 def eliminar_categoria(id):
     if models.eliminar_categoria(id):
@@ -155,7 +149,6 @@ def eliminar_categoria(id):
     else:
         flash("❌ No se pudo eliminar la categoría.")
     return redirect(url_for('main.listar_categorias'))
-
 
 # =====================================================
 #   PROVEEDORES
@@ -165,7 +158,6 @@ def eliminar_categoria(id):
 def listar_proveedores():
     proveedores = models.obtener_proveedores_todos()
     return render_template('proveedores.html', proveedores=proveedores, page_title="Proveedores")
-
 
 @main_bp.route('/proveedores/nuevo', methods=['GET', 'POST'])
 def nuevo_proveedor():
@@ -180,7 +172,6 @@ def nuevo_proveedor():
             flash("❌ Error al agregar proveedor.")
         return redirect(url_for('main.listar_proveedores'))
     return render_template('proveedor_form.html', proveedor=None, page_title="Nuevo proveedor")
-
 
 @main_bp.route('/proveedores/editar/<int:id>', methods=['GET', 'POST'])
 def editar_proveedor(id):
@@ -202,7 +193,6 @@ def editar_proveedor(id):
 
     return render_template('proveedor_form.html', proveedor=proveedor, page_title="Editar proveedor")
 
-
 @main_bp.route('/proveedores/eliminar/<int:id>')
 def eliminar_proveedor(id):
     if models.eliminar_proveedor(id):
@@ -212,7 +202,7 @@ def eliminar_proveedor(id):
     return redirect(url_for('main.listar_proveedores'))
 
 # =====================================================
-#   VENTAS (TODO INTEGRADO)
+#   VENTAS
 # =====================================================
 
 @main_bp.route("/ventas")
@@ -224,33 +214,6 @@ def listar_ventas():
                          clientes=clientes, 
                          ventas=ventas, 
                          page_title="Gestión de Ventas y Clientes")
-
-def obtener_ventas():
-    """Obtiene todas las ventas usando sp_ObtenerVentas"""
-    conn = get_connection()
-    ventas = []
-    try:
-        cursor = conn.cursor()
-        cursor.execute("EXEC sp_ObtenerVentas")
-        
-        for row in cursor.fetchall():
-            # Manejar valores NULL convirtiéndolos a 0
-            total = row.total if row.total is not None else 0.0
-            
-            ventas.append({
-                "id": row.id_venta,
-                "cliente": row.cliente,
-                "usuario": row.usuario,
-                "fecha": row.fecha_venta.strftime("%d/%m/%Y %H:%M") if row.fecha_venta else "N/A",
-                "total": float(total),
-                "tipo": row.tipo_venta if row.tipo_venta else "Venta",
-                "observaciones": row.observaciones if row.observaciones else ""
-            })
-    except Exception as e:
-        print(f"Error en obtener_ventas: {e}")
-    finally:
-        conn.close()
-    return ventas
 
 @main_bp.route("/ventas/nueva", methods=["GET", "POST"])
 def nueva_venta():
@@ -264,7 +227,7 @@ def nueva_venta():
             print("Cliente ID:", cliente_id)
             print("Detalles JSON:", detalles_json)
             
-            # Registrar la venta SIN usuario
+            # Registrar la venta
             success, mensaje = models.registrar_venta(cliente_id, detalles_json)
             
             print("Resultado:", success, mensaje)
@@ -320,7 +283,6 @@ def calcular_total_venta():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
-
 @main_bp.route("/api/productos_venta")
 def api_productos_venta():
     """API para obtener productos disponibles para venta"""
@@ -329,8 +291,11 @@ def api_productos_venta():
         return jsonify(productos)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    
-# Para clientes
+
+# =====================================================
+#   CLIENTES
+# =====================================================
+
 @main_bp.route("/nuevo_cliente", methods=["GET", "POST"])
 def nuevo_cliente():
     """Crea un nuevo cliente usando sp_AgregarCliente"""
@@ -340,7 +305,6 @@ def nuevo_cliente():
         direccion = request.form["direccion"]
         correo = request.form["correo"]
         
-        # Usa el procedimiento almacenado de models.py
         if models.agregar_cliente(nombre, telefono, direccion, correo):
             flash("✅ Cliente agregado correctamente.", "success")
         else:
@@ -381,13 +345,13 @@ def eliminar_cliente(id):
     return redirect(url_for('main.listar_ventas'))
 
 # =====================================================
-#   GRAFICAS
+#   DASHBOARD
 # =====================================================
 
 @main_bp.route("/dashboard")
 def dashboard():
     """Dashboard con gráficas del sistema"""
-    # Datos para las gráficas
+    # Datos para las gráficas usando procedimientos almacenados
     datos = {
         "total_productos": models.obtener_total_productos(),
         "total_ventas": models.obtener_total_ventas(),
@@ -398,114 +362,6 @@ def dashboard():
     }
     return render_template("dashboard.html", datos=datos, page_title="Dashboard")
 
-def obtener_total_productos():
-    """Obtiene el total de productos activos"""
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM Productos WHERE estado = 'Activo'")
-        return cursor.fetchone()[0]
-    finally:
-        conn.close()
-
-def obtener_total_ventas():
-    """Obtiene el total de ventas registradas"""
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM Ventas")
-        return cursor.fetchone()[0]
-    finally:
-        conn.close()
-
-def obtener_total_clientes():
-    """Obtiene el total de clientes"""
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM Clientes")
-        return cursor.fetchone()[0]
-    finally:
-        conn.close()
-
-def obtener_ventas_ultimos_meses(meses=6):
-    """Obtiene ventas de los últimos N meses"""
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT 
-                FORMAT(fecha_venta, 'yyyy-MM') as mes,
-                COUNT(*) as cantidad_ventas,
-                SUM(total) as total_ventas
-            FROM Ventas 
-            WHERE fecha_venta >= DATEADD(MONTH, -?, GETDATE())
-            GROUP BY FORMAT(fecha_venta, 'yyyy-MM')
-            ORDER BY mes
-        """, (meses,))
-        
-        resultados = []
-        for row in cursor.fetchall():
-            resultados.append({
-                "mes": row.mes,
-                "cantidad_ventas": row.cantidad_ventas,
-                "total_ventas": float(row.total_ventas) if row.total_ventas else 0.0
-            })
-        return resultados
-    finally:
-        conn.close()
-
-def obtener_productos_mas_vendidos(limite=5):
-    """Obtiene los productos más vendidos"""
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT TOP (?) 
-                p.nombre,
-                SUM(d.cantidad) as total_vendido,
-                SUM(d.subtotal) as total_ingresos
-            FROM Detalle_venta d
-            INNER JOIN Productos p ON d.id_producto = p.id_producto
-            GROUP BY p.nombre
-            ORDER BY total_vendido DESC
-        """, (limite,))
-        
-        resultados = []
-        for row in cursor.fetchall():
-            resultados.append({
-                "producto": row.nombre,
-                "total_vendido": float(row.total_vendido),
-                "total_ingresos": float(row.total_ingresos) if row.total_ingresos else 0.0
-            })
-        return resultados
-    finally:
-        conn.close()
-
-def obtener_productos_stock_bajo():
-    """Obtiene productos con stock bajo el mínimo"""
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT nombre, stock_actual, stock_minimo
-            FROM Productos 
-            WHERE estado = 'Activo' AND stock_actual <= stock_minimo
-            ORDER BY (stock_minimo - stock_actual) DESC
-        """)
-        
-        resultados = []
-        for row in cursor.fetchall():
-            resultados.append({
-                "producto": row.nombre,
-                "stock_actual": float(row.stock_actual),
-                "stock_minimo": float(row.stock_minimo),
-                "diferencia": float(row.stock_minimo - row.stock_actual)
-            })
-        return resultados
-    finally:
-        conn.close()
-
 # =====================================================
 #   REABASTECIMIENTO DE INVENTARIO
 # =====================================================
@@ -514,6 +370,7 @@ def obtener_productos_stock_bajo():
 def reabastecer_inventario():
     """Reabastece el inventario de productos"""
     productos = models.obtener_productos()
+    productos_bajos = models.obtener_productos_stock_bajo()  # <- NUEVA LÍNEA
     producto_seleccionado = request.args.get('producto_id')
     
     if request.method == "POST":
@@ -539,5 +396,6 @@ def reabastecer_inventario():
     
     return render_template("reabastecer.html", 
                          productos=productos, 
+                         productos_bajos=productos_bajos,  # <- NUEVO PARÁMETRO
                          producto_seleccionado=producto_seleccionado,
                          page_title="Reabastecer Inventario")

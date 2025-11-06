@@ -140,7 +140,6 @@
                                     <th>Producto</th>
                                     <th class="text-center">Stock Actual</th>
                                     <th class="text-center">Stock Mínimo</th>
-                                    <th class="text-center">Faltante</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -151,9 +150,6 @@
                                         <span class="badge bg-danger">{{ producto.stock_actual }}</span>
                                     </td>
                                     <td class="text-center">{{ producto.stock_minimo }}</td>
-                                    <td class="text-center text-danger fw-bold">
-                                        {{ "%.0f"|format(producto.diferencia) }}
-                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -168,6 +164,7 @@
                 </div>
             </div>
         </div>
+
 
         <!-- Top Productos -->
         {% if datos.productos_mas_vendidos %}

@@ -30,21 +30,25 @@ def obtener_productos():
 
 
 def obtener_categorias():
+    """Lista simple para dropdowns usando sp_ObtenerCategorias"""
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id_categoria, nombre FROM Categorias ORDER BY nombre")
-    datos = [{"id": r.id_categoria, "nombre": r.nombre} for r in cursor.fetchall()]
-    conn.close()
-    return datos
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_categoria, nombre FROM Categorias ORDER BY nombre")
+        return [{"id": r.id_categoria, "nombre": r.nombre} for r in cursor.fetchall()]
+    finally:
+        conn.close()
 
 
 def obtener_proveedores():
+    """Lista simple para dropdowns usando sp_ObtenerProveedores"""
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id_proveedor, nombre FROM Proveedores ORDER BY nombre")
-    datos = [{"id": r.id_proveedor, "nombre": r.nombre} for r in cursor.fetchall()]
-    conn.close()
-    return datos
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_proveedor, nombre FROM Proveedores ORDER BY nombre")
+        return [{"id": r.id_proveedor, "nombre": r.nombre} for r in cursor.fetchall()]
+    finally:
+        conn.close()
 
 
 def agregar_producto(nombre, id_categoria, id_proveedor, unidad, stock_inicial, stock_minimo, precio_unitario):
@@ -115,7 +119,7 @@ def actualizar_producto(id_producto, nombre, id_categoria, id_proveedor, unidad,
 
 
 def eliminar_producto(id_producto):
-    """Elimina (inactiva) producto"""
+    """Elimina (inactiva) producto usando sp_CambiarEstadoProducto"""
     return cambiar_estado_producto(id_producto, 'Inactivo')
 
 
@@ -139,16 +143,6 @@ def cambiar_estado_producto(id_producto, nuevo_estado):
 #   CATEGORÍAS
 # =====================================================
 
-def obtener_categorias():
-    """Lista simple para dropdowns"""
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT id_categoria, nombre FROM Categorias ORDER BY nombre")
-        return [{"id": r.id_categoria, "nombre": r.nombre} for r in cursor.fetchall()]
-    finally:
-        conn.close()
-
 def obtener_categorias_todas():
     """Obtiene todas las categorías con detalles usando sp_ObtenerCategorias"""
     conn = get_connection()
@@ -167,6 +161,7 @@ def obtener_categorias_todas():
         conn.close()
     return categorias
 
+
 def agregar_categoria(nombre, descripcion):
     """Agrega categoría usando sp_AgregarCategoria"""
     conn = get_connection()
@@ -181,6 +176,7 @@ def agregar_categoria(nombre, descripcion):
         return False
     finally:
         conn.close()
+
 
 def obtener_categoria_por_id(id_categoria):
     """Obtiene una categoría por ID usando sp_ObtenerCategoriaPorId"""
@@ -391,6 +387,7 @@ def agregar_cliente(nombre, telefono, direccion, correo):
     finally:
         conn.close()
 
+
 def actualizar_cliente(id_cliente, nombre, telefono, direccion, correo):
     """Actualiza cliente usando sp_ActualizarCliente"""
     conn = get_connection()
@@ -425,27 +422,16 @@ def eliminar_cliente(id_cliente):
 
 
 # =====================================================
-#   VENTAS (ACTUALIZADO de Facturas a Ventas)
+#   VENTAS
 # =====================================================
 
 def obtener_ventas():
-    """Obtiene todas las ventas usando sp_ObtenerVentas (sin usuario)"""
+    """Obtiene todas las ventas usando sp_ObtenerVentasLista"""
     conn = get_connection()
     ventas = []
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT 
-                v.id_venta,
-                c.nombre AS cliente,
-                v.fecha_venta,
-                v.total,
-                v.tipo_venta,
-                v.observaciones
-            FROM Ventas v
-            INNER JOIN Clientes c ON v.id_cliente = c.id_cliente
-            ORDER BY v.fecha_venta DESC
-        """)
+        cursor.execute("EXEC sp_ObtenerVentasLista")
         
         for row in cursor.fetchall():
             # Manejar valores NULL en total
@@ -457,7 +443,7 @@ def obtener_ventas():
             ventas.append({
                 "id": row.id_venta,
                 "cliente": row.cliente,
-                "fecha": fecha_str,  # Ya formateada como string
+                "fecha": fecha_str,
                 "total": float(total),
                 "tipo": row.tipo_venta if row.tipo_venta is not None else 'Venta',
                 "observaciones": row.observaciones or ''
@@ -470,7 +456,7 @@ def obtener_ventas():
 
 
 def registrar_venta(id_cliente, detalle_json):
-    """Registra una venta completa usando sp_RegistrarVenta (sin usuario)"""
+    """Registra una venta completa usando sp_RegistrarVenta"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -484,6 +470,7 @@ def registrar_venta(id_cliente, detalle_json):
         return False, str(e)
     finally:
         conn.close()
+
 
 def obtener_venta_por_id(id_venta):
     """Obtiene venta por ID usando sp_ObtenerVentaPorId"""
@@ -530,21 +517,12 @@ def obtener_venta_por_id(id_venta):
 
 
 def obtener_detalles_venta(id_venta):
-    """Obtiene detalles de venta"""
+    """Obtiene detalles de venta usando sp_ObtenerDetallesVenta"""
     conn = get_connection()
     detalles = []
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT 
-                p.nombre AS producto,
-                d.cantidad,
-                d.precio_unitario,
-                d.subtotal
-            FROM Detalle_venta d
-            INNER JOIN Productos p ON d.id_producto = p.id_producto
-            WHERE d.id_venta = ?
-        """, (id_venta,))
+        cursor.execute("EXEC sp_ObtenerDetallesVenta @id_venta=?", (id_venta,))
         
         for r in cursor.fetchall():
             detalles.append({
@@ -579,7 +557,6 @@ def obtener_ventas_filtradas(fecha_inicio=None, fecha_fin=None, id_cliente=None)
             ventas.append({
                 "id": row.id_venta,
                 "cliente": row.cliente,
-                "usuario": row.usuario,
                 "fecha": row.fecha_venta.strftime("%d/%m/%Y %H:%M"),
                 "total": float(row.total),
                 "observaciones": row.observaciones
@@ -652,6 +629,7 @@ def agregar_movimiento(id_producto, tipo_movimiento, cantidad, observaciones):
     finally:
         conn.close()
 
+
 def obtener_movimientos(fecha_inicio=None, fecha_fin=None, tipo_movimiento=None):
     """Obtiene movimientos con filtros usando sp_ObtenerMovimientos"""
     conn = get_connection()
@@ -684,27 +662,22 @@ def obtener_movimientos(fecha_inicio=None, fecha_fin=None, tipo_movimiento=None)
 # =====================================================
 
 def obtener_usuarios():
-    """Obtiene usuarios para dropdowns en ventas"""
+    """Obtiene usuarios para dropdowns usando sp_ObtenerUsuariosActivos"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id_usuario, nombre FROM Usuarios WHERE activo = 1 ORDER BY nombre")
+        cursor.execute("EXEC sp_ObtenerUsuariosActivos")
         return [{"id": r.id_usuario, "nombre": r.nombre} for r in cursor.fetchall()]
     finally:
         conn.close()
 
 
 def obtener_productos_para_venta():
-    """Obtiene productos activos para ventas"""
+    """Obtiene productos activos para ventas usando sp_ObtenerProductosParaVenta"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id_producto, nombre, stock_actual, precio_unitario 
-            FROM Productos 
-            WHERE estado = 'Activo' AND stock_actual > 0
-            ORDER BY nombre
-        """)
+        cursor.execute("EXEC sp_ObtenerProductosParaVenta")
         return [
             {
                 "id": r.id_producto,
@@ -723,50 +696,44 @@ def obtener_productos_para_venta():
 # =====================================================
 
 def obtener_total_productos():
-    """Obtiene el total de productos activos"""
+    """Obtiene el total de productos activos usando sp_ObtenerTotalProductos"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM Productos WHERE estado = 'Activo'")
+        cursor.execute("EXEC sp_ObtenerTotalProductos")
         return cursor.fetchone()[0]
     finally:
         conn.close()
+
 
 def obtener_total_ventas():
-    """Obtiene el total de ventas registradas"""
+    """Obtiene el total de ventas registradas usando sp_ObtenerTotalVentas"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM Ventas")
+        cursor.execute("EXEC sp_ObtenerTotalVentas")
         return cursor.fetchone()[0]
     finally:
         conn.close()
+
 
 def obtener_total_clientes():
-    """Obtiene el total de clientes"""
+    """Obtiene el total de clientes usando sp_ObtenerTotalClientes"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM Clientes")
+        cursor.execute("EXEC sp_ObtenerTotalClientes")
         return cursor.fetchone()[0]
     finally:
         conn.close()
 
+
 def obtener_ventas_ultimos_meses(meses=6):
-    """Obtiene ventas de los últimos N meses"""
+    """Obtiene ventas de los últimos N meses usando sp_ObtenerVentasUltimosMeses"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT 
-                FORMAT(fecha_venta, 'yyyy-MM') as mes,
-                COUNT(*) as cantidad_ventas,
-                ISNULL(SUM(total), 0) as total_ventas
-            FROM Ventas 
-            WHERE fecha_venta >= DATEADD(MONTH, -?, GETDATE())
-            GROUP BY FORMAT(fecha_venta, 'yyyy-MM')
-            ORDER BY mes
-        """, (meses,))
+        cursor.execute("EXEC sp_ObtenerVentasUltimosMeses @meses=?", (meses,))
         
         resultados = []
         for row in cursor.fetchall():
@@ -782,21 +749,13 @@ def obtener_ventas_ultimos_meses(meses=6):
     finally:
         conn.close()
 
+
 def obtener_productos_mas_vendidos(limite=5):
-    """Obtiene los productos más vendidos"""
+    """Obtiene los productos más vendidos usando sp_ObtenerProductosMasVendidos"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT TOP (?) 
-                p.nombre,
-                ISNULL(SUM(d.cantidad), 0) as total_vendido,
-                ISNULL(SUM(d.subtotal), 0) as total_ingresos
-            FROM Detalle_venta d
-            INNER JOIN Productos p ON d.id_producto = p.id_producto
-            GROUP BY p.nombre
-            ORDER BY total_vendido DESC
-        """, (limite,))
+        cursor.execute("EXEC sp_ObtenerProductosMasVendidos @limite=?", (limite,))
         
         resultados = []
         for row in cursor.fetchall():
@@ -812,17 +771,13 @@ def obtener_productos_mas_vendidos(limite=5):
     finally:
         conn.close()
 
+
 def obtener_productos_stock_bajo():
-    """Obtiene productos con stock bajo el mínimo"""
+    """Obtiene productos con stock bajo el mínimo usando sp_ObtenerProductosStockBajo"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT nombre, stock_actual, stock_minimo
-            FROM Productos 
-            WHERE estado = 'Activo' AND stock_actual <= stock_minimo
-            ORDER BY (stock_minimo - stock_actual) DESC
-        """)
+        cursor.execute("EXEC sp_ObtenerProductosStockBajo")
         
         resultados = []
         for row in cursor.fetchall():
