@@ -399,3 +399,150 @@ def reabastecer_inventario():
                          productos_bajos=productos_bajos,  # <- NUEVO PARÁMETRO
                          producto_seleccionado=producto_seleccionado,
                          page_title="Reabastecer Inventario")
+
+
+# =====================================================
+#   GENERACIÓN DE BOLETA PDF
+# =====================================================
+
+from flask import send_file
+import io
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+from datetime import datetime
+import os
+
+@main_bp.route("/api/ventas/<int:id>/pdf/boleta")
+def generar_pdf_boleta(id):
+    """Genera PDF con formato de boleta de venta"""
+    try:
+        venta, detalles = models.obtener_venta_por_id(id)
+        if not venta:
+            return jsonify({'error': 'Venta no encontrada'}), 404
+
+        buffer = io.BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
+        
+        pdf.setTitle(f"Boleta Venta #{venta['id']}")
+        
+        # Logo (opcional)
+        try:
+            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'img', 'logo.png')
+            if os.path.exists(logo_path):
+                logo = ImageReader(logo_path)
+                pdf.drawImage(logo, 50, height - 100, width=50, height=50)
+        except:
+            pass  # Si no hay logo, continuar sin él
+        
+        # Encabezado de boleta
+        pdf.setFont("Helvetica-Bold", 18)
+        pdf.drawCentredString(width/2, height - 60, "BOLETA DE VENTA")
+        
+        pdf.setFont("Helvetica", 10)
+        pdf.drawCentredString(width/2, height - 80, f"Venta #: {venta['id']}")
+        pdf.drawCentredString(width/2, height - 95, f"Fecha: {venta['fecha']}")
+        
+        # Información del cliente
+        y_position = height - 130
+        pdf.setFont("Helvetica-Bold", 12)
+        pdf.drawString(50, y_position, "Cliente:")
+        pdf.setFont("Helvetica", 10)
+        pdf.drawString(100, y_position, venta['cliente'])
+        
+        y_position -= 20
+        pdf.setFont("Helvetica-Bold", 12)
+        pdf.drawString(50, y_position, "Tipo de Venta:")
+        pdf.setFont("Helvetica", 10)
+        pdf.drawString(140, y_position, venta['tipo'])
+        
+        # Línea separadora
+        y_position -= 20
+        pdf.line(50, y_position, width - 50, y_position)
+        y_position -= 30
+        
+        # Detalles de productos
+        pdf.setFont("Helvetica-Bold", 14)
+        pdf.drawString(50, y_position, "DETALLE DE PRODUCTOS")
+        y_position -= 25
+        
+        # Encabezados de tabla
+        pdf.setFont("Helvetica-Bold", 10)
+        pdf.drawString(50, y_position, "Producto")
+        pdf.drawString(300, y_position, "Cantidad")
+        pdf.drawString(370, y_position, "Precio Unit.")
+        pdf.drawString(470, y_position, "Subtotal")
+        
+        y_position -= 15
+        pdf.line(50, y_position, width - 50, y_position)
+        y_position -= 10
+        
+        # Detalles de productos
+        pdf.setFont("Helvetica", 9)
+        total_venta = 0
+        
+        for detalle in detalles:
+            if y_position < 100:  # Nueva página si se acaba el espacio
+                pdf.showPage()
+                y_position = height - 50
+                pdf.setFont("Helvetica-Bold", 10)
+                pdf.drawString(50, y_position, "Producto")
+                pdf.drawString(300, y_position, "Cantidad")
+                pdf.drawString(370, y_position, "Precio Unit.")
+                pdf.drawString(470, y_position, "Subtotal")
+                y_position -= 20
+                pdf.line(50, y_position, width - 50, y_position)
+                y_position -= 10
+                pdf.setFont("Helvetica", 9)
+            
+            # Producto (con wrap de texto si es muy largo)
+            producto = detalle['producto']
+            if len(producto) > 40:
+                producto = producto[:37] + "..."
+            pdf.drawString(50, y_position, producto)
+            pdf.drawString(300, y_position, str(detalle['cantidad']))
+            pdf.drawString(370, y_position, f"S/. {detalle['precio_unitario']:.2f}")
+            pdf.drawString(470, y_position, f"S/. {detalle['subtotal']:.2f}")
+            y_position -= 15
+            total_venta += detalle['subtotal']
+        
+        # Total
+        y_position -= 10
+        pdf.line(400, y_position, width - 50, y_position)
+        y_position -= 15
+        pdf.setFont("Helvetica-Bold", 12)
+        pdf.drawString(400, y_position, "TOTAL:")
+        pdf.drawString(470, y_position, f"S/. {total_venta:.2f}")
+        
+        # Observaciones
+        y_position -= 30
+        if venta['observaciones']:
+            pdf.setFont("Helvetica-Bold", 10)
+            pdf.drawString(50, y_position, "Observaciones:")
+            pdf.setFont("Helvetica", 9)
+            pdf.drawString(50, y_position - 15, venta['observaciones'])
+            y_position -= 30
+        
+        # Mensaje de agradecimiento y pie de página
+        y_position -= 20
+        pdf.setFont("Helvetica-Oblique", 10)
+        pdf.drawCentredString(width/2, y_position, "¡Gracias por su compra!")
+        
+        y_position -= 20
+        pdf.setFont("Helvetica", 8)
+        pdf.drawCentredString(width/2, y_position, f"Documento generado el {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+        
+        pdf.save()
+        buffer.seek(0)
+        
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=f"boleta_venta_{venta['id']}.pdf",
+            mimetype='application/pdf'
+        )
+        
+    except Exception as e:
+        print(f"Error al generar boleta: {e}")
+        return jsonify({'error': 'Error al generar la boleta'}), 500

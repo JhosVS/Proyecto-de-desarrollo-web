@@ -269,10 +269,16 @@
                             <td class="fw-bold">S/. {{ "%.2f"|format(v.total) }}</td>
                             <td>{{ v.observaciones or '' }}</td>
                             <td class="text-center">
-                                <button type="button" class="btn btn-outline-info btn-sm" 
-                                        onclick="verDetalleVenta({{ v.id }})" title="Ver detalle">
-                                    <i class="bi bi-eye"></i>
-                                </button>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-info" 
+                                            onclick="verDetalleVenta({{ v.id }})" title="Ver detalle">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-success" 
+                                            onclick="generarBoletaPDF({{ v.id }})" title="Generar Boleta">
+                                        <i class="bi bi-file-earmark-pdf"></i> Boleta
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -369,6 +375,15 @@
                             </tr>
                         </tfoot>
                     </table>
+                </div>
+
+                <!-- Botón de generación de boleta en el modal -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <button type="button" class="btn btn-success w-100" onclick="generarBoletaPDF({{ venta_especifica.id }})">
+                            <i class="bi bi-file-earmark-pdf"></i> Generar Boleta PDF
+                        </button>
+                    </div>
                 </div>
                 {% else %}
                 <div class="text-center py-4">
@@ -574,6 +589,132 @@ function confirmarEliminacion(clienteId, clienteNombre) {
 function verDetalleVenta(ventaId) {
     window.location.href = "{{ url_for('main.ver_venta', id=0) }}".replace('0', ventaId);
 }
+
+// =====================================================
+// FUNCIÓN PARA GENERACIÓN DE BOLETA PDF
+// =====================================================
+
+// Función para generar PDF de boleta
+function generarBoletaPDF(ventaId) {
+    mostrarCargando('Generando boleta...');
+    
+    fetch(`/api/ventas/${ventaId}/pdf/boleta`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error al generar la boleta');
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            ocultarCargando();
+            // Crear URL para el blob y descargar
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `boleta_venta_${ventaId}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            mostrarMensajeExito('Boleta generada correctamente');
+        })
+        .catch(error => {
+            ocultarCargando();
+            console.error('Error:', error);
+            mostrarMensajeError('Error al generar la boleta: ' + error.message);
+        });
+}
+
+// Funciones auxiliares para mostrar/ocultar estados de carga
+function mostrarCargando(mensaje) {
+    // Crear overlay de carga si no existe
+    let overlay = document.getElementById('loadingOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'loadingOverlay';
+        overlay.className = 'position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center';
+        overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        overlay.style.zIndex = '9999';
+        overlay.innerHTML = `
+            <div class="bg-white rounded p-4 text-center">
+                <div class="spinner-border text-primary mb-3"></div>
+                <p class="mb-0" id="loadingMessage">${mensaje}</p>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    }
+}
+
+function ocultarCargando() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
+function mostrarMensajeExito(mensaje) {
+    // Usar toast de Bootstrap si está disponible, sino alert simple
+    if (typeof bootstrap !== 'undefined' && bootstrap.Toast) {
+        const toastEl = document.createElement('div');
+        toastEl.className = 'toast align-items-center text-white bg-success border-0';
+        toastEl.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${mensaje}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        document.body.appendChild(toastEl);
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+        setTimeout(() => toastEl.remove(), 5000);
+    } else {
+        alert(mensaje);
+    }
+}
+
+function mostrarMensajeError(mensaje) {
+    if (typeof bootstrap !== 'undefined' && bootstrap.Toast) {
+        const toastEl = document.createElement('div');
+        toastEl.className = 'toast align-items-center text-white bg-danger border-0';
+        toastEl.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${mensaje}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        document.body.appendChild(toastEl);
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+        setTimeout(() => toastEl.remove(), 5000);
+    } else {
+        alert(mensaje);
+    }
+}
 </script>
+
+<style>
+/* Estilos adicionales para los botones de PDF */
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Mejora visual para la tabla de historial */
+.table tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.025);
+}
+
+/* Estilos para el modal de detalle */
+.modal-lg {
+    max-width: 800px;
+}
+
+/* Estilos para los badges de tipo de venta */
+.badge {
+    font-size: 0.75em;
+}
+</style>
 
 {% endblock %}
