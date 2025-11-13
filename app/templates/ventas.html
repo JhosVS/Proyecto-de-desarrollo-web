@@ -16,16 +16,16 @@
         {% endif %}
     {% endwith %}
 
-    <!-- Pestañas -->
+    <!-- Pestañas principales -->
     <ul class="nav nav-tabs" id="ventasTabs" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="clientes-tab" data-bs-toggle="tab" data-bs-target="#clientes" type="button" role="tab">
-                <i class="bi bi-people-fill"></i> Clientes
+            <button class="nav-link active" id="registrar-tab" data-bs-toggle="tab" data-bs-target="#registrar" type="button" role="tab">
+                <i class="bi bi-cart-plus"></i> Registrar Venta
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="ventas-tab" data-bs-toggle="tab" data-bs-target="#ventas" type="button" role="tab">
-                <i class="bi bi-receipt"></i> Registrar Venta
+            <button class="nav-link" id="clientes-tab" data-bs-toggle="tab" data-bs-target="#clientes" type="button" role="tab">
+                <i class="bi bi-people-fill"></i> Clientes
             </button>
         </li>
         <li class="nav-item" role="presentation">
@@ -37,8 +37,134 @@
 
     <div class="tab-content mt-3" id="ventasTabsContent">
 
-        <!-- Pestaña Clientes -->
-        <div class="tab-pane fade show active" id="clientes" role="tabpanel">
+        <!-- Pestaña Registrar Venta (PRINCIPAL) -->
+        <div class="tab-pane fade show active" id="registrar" role="tabpanel">
+            <div class="row">
+                <!-- Columna izquierda: Selección de cliente y productos -->
+                <div class="col-md-8">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Detalles de la Venta</h5>
+                        </div>
+                        <div class="card-body">
+                            <!-- Selección de cliente -->
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6>Seleccionar Cliente</h6>
+                                    <a href="{{ url_for('main.nuevo_cliente') }}" class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-person-plus"></i> Nuevo Cliente
+                                    </a>
+                                </div>
+                                
+                                <div class="input-group">
+                                    <select class="form-select" id="cliente_select" onchange="seleccionarClienteDesdeSelect()">
+                                        <option value="">Seleccione un cliente...</option>
+                                        {% for c in clientes %}
+                                        <option value="{{ c.id }}" data-nombre="{{ c.nombre }}">{{ c.nombre }} - {{ c.telefono }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="limpiarSeleccionCliente()">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
+                                </div>
+                                <div class="mt-2">
+                                    <span id="clienteSeleccionado" class="fw-bold text-primary">Ningún cliente seleccionado</span>
+                                </div>
+                            </div>
+
+                            <!-- Selección de productos -->
+                            <div class="mb-3">
+                                <h6>Agregar Productos</h6>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <select id="producto_select" class="form-select">
+                                            <option value="">Seleccione un producto...</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="number" id="cantidad_producto" class="form-control" min="1" value="1">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button type="button" class="btn btn-primary w-100" onclick="agregarProducto()">
+                                            <i class="bi bi-plus-circle"></i> Agregar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Lista de productos agregados -->
+                            <div class="table-responsive">
+                                <table class="table table-sm" id="tablaProductos">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th width="100">Cantidad</th>
+                                            <th width="120">Precio Unit.</th>
+                                            <th width="120">Subtotal</th>
+                                            <th width="80">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cuerpoProductos">
+                                        <!-- Los productos se agregarán aquí dinámicamente -->
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="table-active">
+                                            <td colspan="3" class="text-end fw-bold">TOTAL:</td>
+                                            <td class="fw-bold" id="totalGeneral">S/. 0.00</td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Columna derecha: Resumen y acciones -->
+                <div class="col-md-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">Resumen y Finalización</h6>
+                        </div>
+                        <div class="card-body">
+                            <form action="{{ url_for('main.nueva_venta') }}" method="POST" id="formVenta">
+                                <input type="hidden" name="cliente_id" id="cliente_id" required>
+                                <input type="hidden" name="detalles" id="detalles_venta" value="[]">
+                                
+                                <div class="mb-3">
+                                    <label for="tipo" class="form-label">Tipo de venta</label>
+                                    <select name="tipo" id="tipo" class="form-select" required>
+                                        <option value="Venta">Venta Normal</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="total" class="form-label">Total (S/)</label>
+                                    <input type="number" step="0.01" name="total" id="total" class="form-control" required readonly>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="observaciones" class="form-label">Observaciones</label>
+                                    <textarea name="observaciones" id="observaciones" class="form-control" rows="2" placeholder="Observaciones adicionales..."></textarea>
+                                </div>
+                                
+                                <div class="d-grid gap-2">
+                                    <button type="submit" class="btn btn-primary" id="btnGuardarVenta" disabled>
+                                        <i class="bi bi-save"></i> Guardar Venta
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="limpiarFormulario()">
+                                        <i class="bi bi-arrow-clockwise"></i> Limpiar Todo
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pestaña Clientes (SECUNDARIA) -->
+        <div class="tab-pane fade" id="clientes" role="tabpanel">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5>Lista de Clientes</h5>
                 <a href="{{ url_for('main.nuevo_cliente') }}" class="btn btn-success">
@@ -69,11 +195,11 @@
                             <td>{{ c.correo }}</td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <!-- Botón Registrar Venta -->
+                                    <!-- Botón Usar para Venta -->
                                     <button class="btn btn-outline-primary" 
-                                            onclick="seleccionarCliente('{{ c.id }}', '{{ c.nombre }}')"
-                                            title="Registrar venta para este cliente">
-                                        <i class="bi bi-bag-check"></i> Venta
+                                            onclick="seleccionarClienteDesdeLista('{{ c.id }}', '{{ c.nombre }}')"
+                                            title="Usar para venta">
+                                        <i class="bi bi-cart"></i> Venta
                                     </button>
                                     
                                     <!-- Botón Editar -->
@@ -109,104 +235,7 @@
             {% endif %}
         </div>
 
-        <!-- Pestaña Ventas -->
-        <div class="tab-pane fade" id="ventas" role="tabpanel">
-            <!-- Encabezado -->
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5>Registrar Nueva Venta</h5>
-                <div>
-                    <span id="clienteSeleccionado" class="fw-bold text-primary me-3">Ningún cliente seleccionado</span>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="limpiarSeleccion()">
-                        <i class="bi bi-x-circle"></i> Cambiar cliente
-                    </button>
-                </div>
-            </div>
-
-            <!-- Formulario de venta -->
-            <form action="{{ url_for('main.nueva_venta') }}" method="POST" class="card p-3 shadow-sm bg-light" id="formVenta">
-                <input type="hidden" name="cliente_id" id="cliente_id" required>
-                <input type="hidden" name="detalles" id="detalles_venta" value="[]">
-
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="tipo" class="form-label">Tipo de venta</label>
-                        <select name="tipo" id="tipo" class="form-select" required>
-                            <option value="Venta">Venta Normal</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="total" class="form-label">Total (S/)</label>
-                        <input type="number" step="0.01" name="total" id="total" class="form-control" required readonly>
-                    </div>
-                </div>
-
-                <!-- Sección de productos -->
-                <div class="mb-4">
-                    <h6 class="border-bottom pb-2">Productos de la Venta</h6>
-                    
-                    <!-- Selector de productos -->
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="producto_select" class="form-label">Seleccionar producto</label>
-                            <select id="producto_select" class="form-select">
-                                <option value="">Seleccione un producto...</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="cantidad_producto" class="form-label">Cantidad</label>
-                            <input type="number" id="cantidad_producto" class="form-control" min="1" value="1">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn btn-primary w-100" onclick="agregarProducto()">
-                                <i class="bi bi-plus-circle"></i> Agregar
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Lista de productos agregados -->
-                    <div class="table-responsive">
-                        <table class="table table-sm" id="tablaProductos">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Producto</th>
-                                    <th width="100">Cantidad</th>
-                                    <th width="120">Precio Unit.</th>
-                                    <th width="120">Subtotal</th>
-                                    <th width="80">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="cuerpoProductos">
-                                <!-- Los productos se agregarán aquí dinámicamente -->
-                            </tbody>
-                            <tfoot>
-                                <tr class="table-active">
-                                    <td colspan="3" class="text-end fw-bold">TOTAL:</td>
-                                    <td class="fw-bold" id="totalGeneral">S/. 0.00</td>
-                                    <td></td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label for="observaciones" class="form-label">Observaciones</label>
-                    <textarea name="observaciones" id="observaciones" class="form-control" rows="2" placeholder="Observaciones adicionales..."></textarea>
-                </div>
-
-                <div class="text-end">
-                    <button type="button" class="btn btn-secondary me-2" onclick="limpiarFormulario()">
-                        <i class="bi bi-arrow-clockwise"></i> Limpiar
-                    </button>
-                    <button type="submit" class="btn btn-primary" id="btnGuardarVenta" disabled>
-                        <i class="bi bi-save"></i> Guardar Venta
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Pestaña Historial -->
+        <!-- Pestaña Historial (SECUNDARIA) -->
         <div class="tab-pane fade" id="historial" role="tabpanel">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5>Historial de Ventas</h5>
@@ -231,7 +260,7 @@
                         <tr>
                             <td>{{ v.id }}</td>
                             <td>{{ v.cliente }}</td>
-                            <td>{{ v.fecha }}</td>  <!-- ← CORREGIDO -->
+                            <td>{{ v.fecha }}</td>
                             <td>
                                 <span class="badge {% if v.tipo == 'Contado' %}bg-success{% elif v.tipo == 'Crédito' %}bg-warning{% else %}bg-primary{% endif %}">
                                     {{ v.tipo or 'Venta' }}
@@ -440,7 +469,6 @@ function eliminarProducto(index) {
 }
 
 // Función para actualizar la tabla de productos
-// Función para actualizar la tabla de productos
 function actualizarTablaProductos() {
     const tbody = document.getElementById('cuerpoProductos');
     const totalInput = document.getElementById('total');
@@ -477,31 +505,50 @@ function actualizarTablaProductos() {
     const clienteSeleccionado = document.getElementById('cliente_id').value;
     btnGuardar.disabled = !(clienteSeleccionado && productosSeleccionados.length > 0);
     
-    // Actualizar campo hidden con los detalles - CORREGIDO
+    // Actualizar campo hidden con los detalles
     detallesInput.value = JSON.stringify(productosSeleccionados.map(p => ({
-        id_producto: p.id,  // Cambiado de producto_id a id_producto
+        id_producto: p.id,
         cantidad: p.cantidad
-        // No enviar precio, se obtiene de la base de datos
     })));
 }
 
-// Función para seleccionar cliente para venta
-function seleccionarCliente(id, nombre) {
+// Función para seleccionar cliente desde el select
+function seleccionarClienteDesdeSelect() {
+    const select = document.getElementById('cliente_select');
+    const selectedOption = select.options[select.selectedIndex];
+    
+    if (selectedOption.value) {
+        document.getElementById('cliente_id').value = selectedOption.value;
+        document.getElementById('clienteSeleccionado').innerText = 'Cliente: ' + selectedOption.dataset.nombre;
+    } else {
+        limpiarSeleccionCliente();
+    }
+    
+    actualizarTablaProductos();
+}
+
+// Función para seleccionar cliente desde la lista de clientes
+function seleccionarClienteDesdeLista(id, nombre) {
     document.getElementById('cliente_id').value = id;
     document.getElementById('clienteSeleccionado').innerText = 'Cliente: ' + nombre;
     
-    // Cambiar a la pestaña de ventas
-    const ventasTab = new bootstrap.Tab(document.querySelector('#ventas-tab'));
-    ventasTab.show();
+    // Seleccionar en el dropdown
+    const select = document.getElementById('cliente_select');
+    select.value = id;
+    
+    // Cambiar a la pestaña de registrar venta
+    const registrarTab = new bootstrap.Tab(document.querySelector('#registrar-tab'));
+    registrarTab.show();
     
     // Actualizar estado del botón de guardar
     actualizarTablaProductos();
 }
 
 // Función para limpiar selección de cliente
-function limpiarSeleccion() {
+function limpiarSeleccionCliente() {
     document.getElementById('cliente_id').value = '';
     document.getElementById('clienteSeleccionado').innerText = 'Ningún cliente seleccionado';
+    document.getElementById('cliente_select').value = '';
     actualizarTablaProductos();
 }
 
@@ -510,6 +557,7 @@ function limpiarFormulario() {
     productosSeleccionados = [];
     document.getElementById('observaciones').value = '';
     document.getElementById('tipo').value = 'Venta';
+    limpiarSeleccionCliente();
     actualizarTablaProductos();
 }
 
