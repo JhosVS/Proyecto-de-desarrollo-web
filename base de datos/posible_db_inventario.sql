@@ -77,12 +77,12 @@ VALUES
 ('Quinua blanca', 1, 1, 'kg', 120.00, 30.00, 6.50),
 ('Kiwicha orgánica', 1, 2, 'kg', 80.00, 20.00, 7.20),
 ('Cañihua tostada', 1, 6, 'kg', 50.00, 15.00, 5.80),
-('Maíz morado serrano', 1, 1, 'saco', 10.00, 3.00, 95.00),
+('Maíz morado', 1, 1, 'saco', 10.00, 3.00, 95.00),
 ('Maíz blanco tipo Cusco', 1, 3, 'qq', 5.00, 2.00, 120.00),
 ('Quinua roja', 1, 2, 'kg', 60.00, 10.00, 7.80),
 ('Cebada perlada', 1, 5, 'kg', 40.00, 10.00, 4.90),
 -- Legumbres secas
-('Frijol serrano', 2, 5, 'kg', 70.00, 20.00, 6.00),
+('Frijol', 2, 5, 'kg', 70.00, 20.00, 6.00),
 ('Haba seca', 2, 4, 'kg', 45.00, 10.00, 5.20);
 
 CREATE TABLE Clientes (
@@ -129,11 +129,5 @@ CREATE TABLE Cambios_Inventario (
     observaciones NVARCHAR(255)
 );
 
--- Insertar algunos movimientos de ejemplo
-INSERT INTO Cambios_Inventario (id_producto, tipo_movimiento, cantidad, observaciones)
-VALUES
-(1, 'Entrada', 100, 'Compra inicial'),
-(2, 'Entrada', 80, 'Compra inicial'),
-(3, 'Entrada', 50, 'Compra inicial');
 
 PRINT '✅ Base de datos INVENTARIO creada correctamente con datos de ejemplo';

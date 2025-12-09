@@ -222,13 +222,15 @@ def nueva_venta():
         try:
             cliente_id = int(request.form["cliente_id"])
             detalles_json = request.form["detalles"]
+            observaciones = request.form.get("observaciones", "")  # <-- Agregar esta línea
             
             print("=== DEBUG VENTA ===")
             print("Cliente ID:", cliente_id)
             print("Detalles JSON:", detalles_json)
+            print("Observaciones:", observaciones)  # <-- Agregar debug
             
-            # Registrar la venta
-            success, mensaje = models.registrar_venta(cliente_id, detalles_json)
+            # Registrar la venta con observaciones
+            success, mensaje = models.registrar_venta(cliente_id, detalles_json, observaciones)
             
             print("Resultado:", success, mensaje)
             print("=== FIN DEBUG ===")
@@ -290,6 +292,22 @@ def api_productos_venta():
         productos = models.obtener_productos_para_venta()
         return jsonify(productos)
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@main_bp.route("/api/ventas/<int:id>/detalle")
+def api_detalle_venta(id):
+    """API para obtener detalle de venta para el modal"""
+    try:
+        venta, detalles = models.obtener_venta_por_id(id)
+        if not venta:
+            return jsonify({'error': 'Venta no encontrada'}), 404
+        
+        return jsonify({
+            'venta': venta,
+            'detalles': detalles
+        })
+    except Exception as e:
+        print("Error en api_detalle_venta:", e)
         return jsonify({'error': str(e)}), 500
 
 # =====================================================

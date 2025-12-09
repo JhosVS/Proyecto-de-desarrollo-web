@@ -429,7 +429,8 @@ GO
 
 CREATE OR ALTER PROCEDURE sp_RegistrarVenta
     @id_cliente INT,
-    @detalle NVARCHAR(MAX)
+    @detalle NVARCHAR(MAX),
+    @observaciones NVARCHAR(500) = NULL  -- <-- Agregar este parámetro
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -448,13 +449,13 @@ BEGIN
         ) d
         INNER JOIN Productos p ON d.id_producto = p.id_producto;
 
-        -- Insertar la venta (sin usuario)
-        INSERT INTO Ventas (id_cliente, id_usuario, total, tipo_venta)
-        VALUES (@id_cliente, NULL, @total, 'Venta');
+        -- Insertar la venta CON observaciones
+        INSERT INTO Ventas (id_cliente, id_usuario, total, tipo_venta, observaciones)
+        VALUES (@id_cliente, NULL, @total, 'Venta', @observaciones);  -- <-- Agregar observaciones aquí
 
         SET @id_venta = SCOPE_IDENTITY();
 
-        -- Insertar detalles
+        -- Insertar detalles (resto del código se mantiene igual)
         INSERT INTO Detalle_venta (id_venta, id_producto, cantidad, precio_unitario)
         SELECT 
             @id_venta,

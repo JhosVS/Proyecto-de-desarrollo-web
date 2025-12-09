@@ -455,13 +455,14 @@ def obtener_ventas():
     return ventas
 
 
-def registrar_venta(id_cliente, detalle_json):
-    """Registra una venta completa usando sp_RegistrarVenta"""
+def registrar_venta(id_cliente, detalle_json, observaciones=None):
+    """Registra una venta completa usando sp_RegistrarVenta con observaciones"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("EXEC sp_RegistrarVenta @id_cliente=?, @detalle=?", 
-                      (id_cliente, detalle_json))
+        # Agregar parámetro para observaciones
+        cursor.execute("EXEC sp_RegistrarVenta @id_cliente=?, @detalle=?, @observaciones=?", 
+                      (id_cliente, detalle_json, observaciones))
         conn.commit()
         return True, "Venta registrada correctamente"
     except Exception as e:
