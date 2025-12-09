@@ -20,6 +20,10 @@ BEGIN
     VALUES (@nombre, @id_categoria, @id_proveedor, @unidad_medida, @stock_inicial, @stock_minimo, @precio_unitario);
 
     DECLARE @id_producto INT = SCOPE_IDENTITY();
+    
+    -- Movimiento con NULL en id_usuario
+    INSERT INTO Cambios_Inventario (id_producto, tipo_movimiento, cantidad, id_usuario, observaciones)
+    VALUES (@id_producto, 'Entrada', @stock_inicial, NULL, 'Stock inicial del producto');
 
     PRINT '✅ Producto agregado y movimiento registrado correctamente.';
 END;
@@ -344,13 +348,88 @@ END
 GO
 
 -- ============================================================
+--  PROCEDIMIENTOS PARA MOVIMIENTOS DE INVENTARIO
+-- ============================================================
+
+CREATE OR ALTER PROCEDURE sp_RegistrarMovimientoSimple
+    @id_producto INT,
+    @tipo_movimiento NVARCHAR(20),
+    @cantidad DECIMAL(10,2),
+    @observaciones NVARCHAR(255) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON
+    
+    BEGIN TRY
+        -- Validar tipo de movimiento
+        IF @tipo_movimiento NOT IN ('Entrada', 'Salida')
+            RAISERROR('Tipo de movimiento inválido', 16, 1)
+
+        -- Validar que el producto existe
+        IF NOT EXISTS (SELECT 1 FROM Productos WHERE id_producto = @id_producto)
+            RAISERROR('Producto no encontrado', 16, 1)
+
+        DECLARE @stock_actual DECIMAL(10,2)
+        SELECT @stock_actual = stock_actual FROM Productos WHERE id_producto = @id_producto
+
+        -- Validar stock para salidas
+        IF @tipo_movimiento = 'Salida' AND @cantidad > @stock_actual
+            RAISERROR('Stock insuficiente', 16, 1)
+
+        BEGIN TRANSACTION
+
+        -- Registrar movimiento
+        INSERT INTO Cambios_Inventario (id_producto, tipo_movimiento, cantidad, observaciones)
+        VALUES (@id_producto, @tipo_movimiento, @cantidad, @observaciones)
+
+        -- Actualizar stock
+        IF @tipo_movimiento = 'Entrada'
+            UPDATE Productos SET stock_actual = stock_actual + @cantidad WHERE id_producto = @id_producto
+        ELSE
+            UPDATE Productos SET stock_actual = stock_actual - @cantidad WHERE id_producto = @id_producto
+
+        COMMIT TRANSACTION
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION
+        ;THROW
+    END CATCH
+END
+GO
+
+-- Obtener movimientos con filtros opcionales
+CREATE OR ALTER PROCEDURE sp_ObtenerMovimientos
+    @fecha_inicio DATETIME = NULL,
+    @fecha_fin DATETIME = NULL,
+    @tipo_movimiento NVARCHAR(20) = NULL
+AS
+BEGIN
+    SELECT 
+        m.id_movimiento,
+        p.nombre AS producto,
+        m.tipo_movimiento,
+        m.cantidad,
+        m.fecha_movimiento,
+        m.observaciones
+    FROM Cambios_Inventario m
+    INNER JOIN Productos p ON m.id_producto = p.id_producto
+    WHERE 
+        (@fecha_inicio IS NULL OR m.fecha_movimiento >= @fecha_inicio)
+        AND (@fecha_fin IS NULL OR m.fecha_movimiento <= @fecha_fin)
+        AND (@tipo_movimiento IS NULL OR m.tipo_movimiento = @tipo_movimiento)
+    ORDER BY m.fecha_movimiento DESC
+END
+GO
+
+-- ============================================================
 --  PROCEDIMIENTOS PARA VENTAS
 -- ============================================================
 
 CREATE OR ALTER PROCEDURE sp_RegistrarVenta
     @id_cliente INT,
-    @detalle NVARCHAR(MAX),
-    @observaciones NVARCHAR(500) = NULL  -- <-- Agregar este parámetro
+    @detalle NVARCHAR(MAX)
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -359,9 +438,8 @@ BEGIN
 
         DECLARE @id_venta INT;
         DECLARE @total DECIMAL(10,2) = 0;
-        DECLARE @tipo_venta NVARCHAR(50) = 'Venta';
 
-        -- Calcular el total
+        -- Calcular el total directamente desde el JSON
         SELECT @total = SUM(d.cantidad * p.precio_unitario)
         FROM OPENJSON(@detalle)
         WITH (
@@ -370,13 +448,13 @@ BEGIN
         ) d
         INNER JOIN Productos p ON d.id_producto = p.id_producto;
 
-        -- Insertar la venta CON observaciones
-        INSERT INTO Ventas (id_cliente, id_usuario, total, tipo_venta, observaciones)
-        VALUES (@id_cliente, NULL, @total, 'Venta', @observaciones);  -- <-- Agregar observaciones aquí
+        -- Insertar la venta (sin usuario)
+        INSERT INTO Ventas (id_cliente, id_usuario, total, tipo_venta)
+        VALUES (@id_cliente, NULL, @total, 'Venta');
 
         SET @id_venta = SCOPE_IDENTITY();
 
-        -- Insertar detalles (resto del código se mantiene igual)
+        -- Insertar detalles
         INSERT INTO Detalle_venta (id_venta, id_producto, cantidad, precio_unitario)
         SELECT 
             @id_venta,

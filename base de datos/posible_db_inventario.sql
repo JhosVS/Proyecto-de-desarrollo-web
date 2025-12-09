@@ -77,12 +77,12 @@ VALUES
 ('Quinua blanca', 1, 1, 'kg', 120.00, 30.00, 6.50),
 ('Kiwicha orgánica', 1, 2, 'kg', 80.00, 20.00, 7.20),
 ('Cañihua tostada', 1, 6, 'kg', 50.00, 15.00, 5.80),
-('Maíz morado', 1, 1, 'saco', 10.00, 3.00, 95.00),
+('Maíz morado serrano', 1, 1, 'saco', 10.00, 3.00, 95.00),
 ('Maíz blanco tipo Cusco', 1, 3, 'qq', 5.00, 2.00, 120.00),
 ('Quinua roja', 1, 2, 'kg', 60.00, 10.00, 7.80),
 ('Cebada perlada', 1, 5, 'kg', 40.00, 10.00, 4.90),
 -- Legumbres secas
-('Frijol', 2, 5, 'kg', 70.00, 20.00, 6.00),
+('Frijol serrano', 2, 5, 'kg', 70.00, 20.00, 6.00),
 ('Haba seca', 2, 4, 'kg', 45.00, 10.00, 5.20);
 
 CREATE TABLE Clientes (
@@ -125,7 +125,8 @@ CREATE TABLE Cambios_Inventario (
     id_producto INT FOREIGN KEY REFERENCES Productos(id_producto),
     tipo_movimiento NVARCHAR(20) CHECK (tipo_movimiento IN ('Entrada','Salida')),
     cantidad DECIMAL(10,2) NOT NULL,
-    fecha_movimiento DATETIME DEFAULT GETDATE()
+    fecha_movimiento DATETIME DEFAULT GETDATE(),
+    observaciones NVARCHAR(255)
 );
 
 

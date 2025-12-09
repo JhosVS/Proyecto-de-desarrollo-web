@@ -455,14 +455,13 @@ def obtener_ventas():
     return ventas
 
 
-def registrar_venta(id_cliente, detalle_json, observaciones=None):
-    """Registra una venta completa usando sp_RegistrarVenta con observaciones"""
+def registrar_venta(id_cliente, detalle_json):
+    """Registra una venta completa usando sp_RegistrarVenta"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        # Agregar parámetro para observaciones
-        cursor.execute("EXEC sp_RegistrarVenta @id_cliente=?, @detalle=?, @observaciones=?", 
-                      (id_cliente, detalle_json, observaciones))
+        cursor.execute("EXEC sp_RegistrarVenta @id_cliente=?, @detalle=?", 
+                      (id_cliente, detalle_json))
         conn.commit()
         return True, "Venta registrada correctamente"
     except Exception as e:
@@ -588,6 +587,74 @@ def obtener_reporte_ventas_por_periodo(fecha_inicio, fecha_fin):
         conn.close()
     return ventas
 
+
+# =====================================================
+#   MOVIMIENTOS DE INVENTARIO
+# =====================================================
+
+def agregar_movimiento(id_producto, tipo_movimiento, cantidad, observaciones):
+    """Registra movimiento de inventario usando sp_RegistrarMovimientoSimple"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        
+        # Ejecutar procedimiento simple
+        cursor.execute("EXEC sp_RegistrarMovimientoSimple @id_producto=?, @tipo_movimiento=?, @cantidad=?, @observaciones=?", 
+                      (id_producto, tipo_movimiento, cantidad, observaciones))
+        conn.commit()
+        
+        # Obtener el nuevo stock para el mensaje
+        cursor.execute("SELECT stock_actual FROM Productos WHERE id_producto = ?", (id_producto,))
+        nuevo_stock = cursor.fetchone()[0]
+        
+        mensaje = f"✅ Movimiento registrado correctamente. Stock actual: {nuevo_stock}"
+        return True, mensaje
+        
+    except Exception as e:
+        error_msg = str(e)
+        print("Error al registrar movimiento:", error_msg)
+        
+        # Mensajes específicos
+        if "Stock insuficiente" in error_msg:
+            # Obtener stock actual para el mensaje
+            cursor.execute("SELECT stock_actual FROM Productos WHERE id_producto = ?", (id_producto,))
+            stock_actual = cursor.fetchone()[0]
+            return False, f"Stock insuficiente. Disponible: {stock_actual}"
+        elif "Tipo de movimiento inválido" in error_msg:
+            return False, "Tipo de movimiento debe ser 'Entrada' o 'Salida'"
+        elif "Producto no encontrado" in error_msg:
+            return False, "Producto no encontrado"
+        else:
+            return False, f"Error al registrar el movimiento: {error_msg}"
+    finally:
+        conn.close()
+
+
+def obtener_movimientos(fecha_inicio=None, fecha_fin=None, tipo_movimiento=None):
+    """Obtiene movimientos con filtros usando sp_ObtenerMovimientos"""
+    conn = get_connection()
+    movimientos = []
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            EXEC sp_ObtenerMovimientos 
+                @fecha_inicio=?, 
+                @fecha_fin=?, 
+                @tipo_movimiento=?
+        """, (fecha_inicio, fecha_fin, tipo_movimiento))
+        
+        for row in cursor.fetchall():
+            movimientos.append({
+                "id": row.id_movimiento,
+                "producto": row.producto,
+                "tipo": row.tipo_movimiento,
+                "cantidad": float(row.cantidad),
+                "fecha": row.fecha_movimiento.strftime("%d/%m/%Y %H:%M"),
+                "observaciones": row.observaciones
+            })
+    finally:
+        conn.close()
+    return movimientos
 
 
 # =====================================================

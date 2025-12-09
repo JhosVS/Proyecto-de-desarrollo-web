@@ -216,25 +216,19 @@ def listar_ventas():
                          page_title="Gestión de Ventas y Clientes")
 
 @main_bp.route("/ventas/nueva", methods=["GET", "POST"])
-
-@main_bp.route("/ventas/nueva", methods=["GET", "POST"])
 def nueva_venta():
     """Registra una nueva venta usando sp_RegistrarVenta (sin usuario)"""
     if request.method == "POST":
         try:
             cliente_id = int(request.form["cliente_id"])
             detalles_json = request.form["detalles"]
-            observaciones = request.form.get("observaciones", "")  # <-- Agregar esta línea
             
             print("=== DEBUG VENTA ===")
             print("Cliente ID:", cliente_id)
-            print("Tipo:", tipo_venta)
-            print("Observaciones:", observaciones)
             print("Detalles JSON:", detalles_json)
-            print("Observaciones:", observaciones)  # <-- Agregar debug
             
-            # Registrar la venta con observaciones
-            success, mensaje = models.registrar_venta(cliente_id, detalles_json, observaciones)
+            # Registrar la venta
+            success, mensaje = models.registrar_venta(cliente_id, detalles_json)
             
             print("Resultado:", success, mensaje)
             print("=== FIN DEBUG ===")
@@ -296,22 +290,6 @@ def api_productos_venta():
         productos = models.obtener_productos_para_venta()
         return jsonify(productos)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@main_bp.route("/api/ventas/<int:id>/detalle")
-def api_detalle_venta(id):
-    """API para obtener detalle de venta para el modal"""
-    try:
-        venta, detalles = models.obtener_venta_por_id(id)
-        if not venta:
-            return jsonify({'error': 'Venta no encontrada'}), 404
-        
-        return jsonify({
-            'venta': venta,
-            'detalles': detalles
-        })
-    except Exception as e:
-        print("Error en api_detalle_venta:", e)
         return jsonify({'error': str(e)}), 500
 
 # =====================================================
@@ -400,6 +378,16 @@ def reabastecer_inventario():
             producto_id = int(request.form["producto_id"])
             cantidad = float(request.form["cantidad"])
             observaciones = request.form.get("observaciones", "Reabastecimiento de inventario")
+            
+            # Registrar el movimiento de entrada
+            success, mensaje = models.agregar_movimiento(
+                producto_id, 'Entrada', cantidad, observaciones
+            )
+            
+            if success:
+                flash(f"✅ {mensaje}", "success")
+            else:
+                flash(f"❌ {mensaje}", "error")
                 
             return redirect(url_for('main.reabastecer_inventario'))
             
