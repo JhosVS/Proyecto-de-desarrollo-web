@@ -125,15 +125,9 @@ CREATE TABLE Cambios_Inventario (
     id_producto INT FOREIGN KEY REFERENCES Productos(id_producto),
     tipo_movimiento NVARCHAR(20) CHECK (tipo_movimiento IN ('Entrada','Salida')),
     cantidad DECIMAL(10,2) NOT NULL,
-    fecha_movimiento DATETIME DEFAULT GETDATE(),
-    observaciones NVARCHAR(255)
+    fecha_movimiento DATETIME DEFAULT GETDATE()
 );
 
--- Insertar algunos movimientos de ejemplo
-INSERT INTO Cambios_Inventario (id_producto, tipo_movimiento, cantidad, observaciones)
-VALUES
-(1, 'Entrada', 100, 'Compra inicial'),
-(2, 'Entrada', 80, 'Compra inicial'),
-(3, 'Entrada', 50, 'Compra inicial');
+-- Esta parte corresponde a una futura auditoria
 
 PRINT '✅ Base de datos INVENTARIO creada correctamente con datos de ejemplo';
