@@ -216,19 +216,25 @@ def listar_ventas():
                          page_title="Gestión de Ventas y Clientes")
 
 @main_bp.route("/ventas/nueva", methods=["GET", "POST"])
+
+@main_bp.route("/ventas/nueva", methods=["GET", "POST"])
 def nueva_venta():
     """Registra una nueva venta usando sp_RegistrarVenta (sin usuario)"""
     if request.method == "POST":
         try:
             cliente_id = int(request.form["cliente_id"])
             detalles_json = request.form["detalles"]
+            observaciones = request.form.get("observaciones", "")  # ← NUEVA LÍNHA
+            tipo_venta = request.form.get("tipo", "Venta")  # También el tipo
             
             print("=== DEBUG VENTA ===")
             print("Cliente ID:", cliente_id)
+            print("Tipo:", tipo_venta)
+            print("Observaciones:", observaciones)
             print("Detalles JSON:", detalles_json)
             
             # Registrar la venta
-            success, mensaje = models.registrar_venta(cliente_id, detalles_json)
+            success, mensaje = models.registrar_venta(cliente_id, detalles_json, observaciones)
             
             print("Resultado:", success, mensaje)
             print("=== FIN DEBUG ===")
@@ -378,16 +384,6 @@ def reabastecer_inventario():
             producto_id = int(request.form["producto_id"])
             cantidad = float(request.form["cantidad"])
             observaciones = request.form.get("observaciones", "Reabastecimiento de inventario")
-            
-            # Registrar el movimiento de entrada
-            success, mensaje = models.agregar_movimiento(
-                producto_id, 'Entrada', cantidad, observaciones
-            )
-            
-            if success:
-                flash(f"✅ {mensaje}", "success")
-            else:
-                flash(f"❌ {mensaje}", "error")
                 
             return redirect(url_for('main.reabastecer_inventario'))
             

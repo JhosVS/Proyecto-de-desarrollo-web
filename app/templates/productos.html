@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container-fluid">
+
   <!-- Header -->
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
@@ -12,53 +13,32 @@
     </a>
   </div>
 
-  <!-- Filtros y Búsqueda -->
-  <div class="row mb-4">
-    <div class="col-md-6">
-      <div class="input-group">
-        <span class="input-group-text bg-light border-end-0">
-          <i class="bi bi-search text-muted"></i>
-        </span>
-        <input type="text" class="form-control border-start-0" placeholder="Buscar productos..." id="searchInput">
-      </div>
-    </div>
-    <div class="col-md-6">
-      <div class="d-flex gap-2 justify-content-md-end">
-        <select class="form-select w-auto" id="categoryFilter">
-          <option value="">Todas las categorías</option>
-          {% for categoria in productos|map(attribute='categoria')|unique %}
-          <option value="{{ categoria }}">{{ categoria }}</option>
-          {% endfor %}
-        </select>
-        <select class="form-select w-auto" id="statusFilter">
-          <option value="">Todos los estados</option>
-          <option value="Activo">Activo</option>
-          <option value="Inactivo">Inactivo</option>
-        </select>
-      </div>
-    </div>
-  </div>
-
   <!-- Grid de Cards -->
-  <div class="row g-4" id="productsGrid">
+  <div class="row g-4">
     {% for p in productos %}
-    <div class="col-xl-4 col-lg-6 col-md-6 product-card" 
-         data-category="{{ p.categoria }}" 
-         data-status="{{ p.estado }}"
-         data-name="{{ p.nombre|lower }}">
-      <div class="card h-100 border-0 shadow-sm product-card-inner {% if p.stock <= p.stock_minimo %}border-warning{% endif %}">
-        <!-- Header de la Card -->
+    <div class="col-xl-4 col-lg-6 col-md-6">
+      <div class="card h-100 border-0 shadow-sm product-card-inner 
+          {% if p.stock <= p.stock_minimo %}border-warning{% endif %}">
+
+        <!-- Imagen del producto -->
+        <div class="p-3">
+          <img 
+            src="{{ url_for('static', filename='img/' ~ p.nombre ~ '.jpg') }}"
+            class="w-100 rounded"
+            style="height: 120px; object-fit: cover; border-radius: 12px !important;"
+            alt="{{ p.nombre }}">
+        </div>
+
+        <!-- Header con título + dropdown -->
         <div class="card-header bg-white border-bottom-0 pb-0 d-flex justify-content-between align-items-start">
-          <div class="d-flex align-items-center">
-            <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" 
-                 style="width: 50px; height: 50px;">
-              <i class="bi bi-box text-primary fs-5"></i>
-            </div>
-            <div>
-              <h6 class="mb-0 fw-bold">{{ p.nombre }}</h6>
-              <small class="text-muted">ID: {{ p.id }}</small>
-            </div>
+
+          <!-- Nombre e ID -->
+          <div>
+            <h6 class="mb-0 fw-bold">{{ p.nombre }}</h6>
+            <small class="text-muted">ID: {{ p.id }}</small>
           </div>
+
+          <!-- Dropdown -->
           <div class="dropdown">
             <button class="btn btn-sm btn-light rounded-circle" type="button" data-bs-toggle="dropdown">
               <i class="bi bi-three-dots-vertical"></i>
@@ -88,11 +68,12 @@
               </li>
             </ul>
           </div>
+
         </div>
 
-        <!-- Body de la Card -->
+        <!-- Body -->
         <div class="card-body pt-3">
-          <!-- Información del Producto -->
+
           <div class="row g-3 mb-3">
             <div class="col-6">
               <small class="text-muted d-block">Categoría</small>
@@ -112,7 +93,7 @@
             </div>
           </div>
 
-          <!-- Estado y Stock -->
+          <!-- Estado + stock -->
           <div class="d-flex justify-content-between align-items-center">
             <div>
               {% if p.estado == 'Activo' %}
@@ -125,10 +106,12 @@
               </span>
               {% endif %}
             </div>
+
             <div class="text-end">
               <div class="fw-bold fs-5 {% if p.stock <= p.stock_minimo %}text-warning{% else %}text-dark{% endif %}">
                 {{ p.stock }} <small class="text-muted fs-6">{{ p.unidad }}</small>
               </div>
+
               {% if p.stock <= p.stock_minimo %}
               <small class="text-warning">
                 <i class="bi bi-exclamation-triangle-fill me-1"></i>Bajo stock
@@ -136,103 +119,26 @@
               {% endif %}
             </div>
           </div>
+
         </div>
 
-        <!-- Footer con Botones de Acción -->
-        <div class="card-footer bg-white border-top-0 pt-0">
-          <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-            <a href="{{ url_for('main.editar_producto', id=p.id) }}" class="btn btn-outline-primary btn-sm flex-fill" title="Editar">
-              <i class="bi bi-pencil me-1"></i>Editar
-            </a>
-            <a href="{{ url_for('main.reabastecer_inventario') }}?producto_id={{ p.id }}" 
-               class="btn btn-outline-success btn-sm flex-fill" title="Reabastecer">
-              <i class="bi bi-plus-circle me-1"></i>Stock
-            </a>
-          </div>
-        </div>
       </div>
     </div>
     {% endfor %}
   </div>
 
-  <!-- Mensaje cuando no hay resultados -->
-  <div id="noResults" class="text-center py-5 d-none">
-    <div class="mb-3">
-      <i class="bi bi-search display-4 text-muted"></i>
-    </div>
-    <h5 class="text-muted">No se encontraron productos</h5>
-    <p class="text-muted">Intenta ajustar los filtros de búsqueda</p>
-  </div>
 </div>
 
 <style>
   .product-card-inner {
     transition: all 0.3s ease;
     border: 2px solid transparent;
+    border-radius: 14px;
   }
-  
   .product-card-inner:hover {
     transform: translateY(-5px);
     box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
   }
-  
-  .card {
-    border-radius: 12px;
-  }
-  
-  .btn {
-    border-radius: 8px;
-  }
-  
-  .badge {
-    border-radius: 6px;
-  }
 </style>
 
-<script>
-  // Filtrado y búsqueda en tiempo real
-  document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('searchInput');
-    const categoryFilter = document.getElementById('categoryFilter');
-    const statusFilter = document.getElementById('statusFilter');
-    const productCards = document.querySelectorAll('.product-card');
-    const noResults = document.getElementById('noResults');
-    
-    function filterProducts() {
-      const searchTerm = searchInput.value.toLowerCase();
-      const categoryValue = categoryFilter.value;
-      const statusValue = statusFilter.value;
-      
-      let visibleCount = 0;
-      
-      productCards.forEach(card => {
-        const name = card.getAttribute('data-name');
-        const category = card.getAttribute('data-category');
-        const status = card.getAttribute('data-status');
-        
-        const matchesSearch = name.includes(searchTerm);
-        const matchesCategory = !categoryValue || category === categoryValue;
-        const matchesStatus = !statusValue || status === statusValue;
-        
-        if (matchesSearch && matchesCategory && matchesStatus) {
-          card.style.display = 'block';
-          visibleCount++;
-        } else {
-          card.style.display = 'none';
-        }
-      });
-      
-      // Mostrar u ocultar mensaje de no resultados
-      if (visibleCount === 0) {
-        noResults.classList.remove('d-none');
-      } else {
-        noResults.classList.add('d-none');
-      }
-    }
-    
-    searchInput.addEventListener('input', filterProducts);
-    categoryFilter.addEventListener('change', filterProducts);
-    statusFilter.addEventListener('change', filterProducts);
-  });
-</script>
 {% endblock %}
