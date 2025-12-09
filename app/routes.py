@@ -291,6 +291,22 @@ def api_productos_venta():
         return jsonify(productos)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+@main_bp.route("/api/ventas/<int:id>/detalle")
+def api_detalle_venta(id):
+    """API para obtener detalle de venta para el modal"""
+    try:
+        venta, detalles = models.obtener_venta_por_id(id)
+        if not venta:
+            return jsonify({'error': 'Venta no encontrada'}), 404
+        
+        return jsonify({
+            'venta': venta,
+            'detalles': detalles
+        })
+    except Exception as e:
+        print("Error en api_detalle_venta:", e)
+        return jsonify({'error': str(e)}), 500
 
 # =====================================================
 #   CLIENTES
