@@ -4,17 +4,17 @@
 <div class="container mt-4">
     <h4 class="mb-4">Gestión de Ventas y Clientes</h4>
 
-    <!-- Mostrar mensajes flash -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+    <!-- Mensajes flash simplificado -->
+    {% if get_flashed_messages() %}
+    <div class="alert-container">
+        {% for category, message in get_flashed_messages(with_categories=true) %}
+        <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
     <!-- Pestañas principales -->
     <ul class="nav nav-tabs" id="ventasTabs" role="tablist">
@@ -37,10 +37,10 @@
 
     <div class="tab-content mt-3" id="ventasTabsContent">
 
-        <!-- Pestaña Registrar Venta (PRINCIPAL) -->
+        <!-- Pestaña Registrar Venta -->
         <div class="tab-pane fade show active" id="registrar" role="tabpanel">
             <div class="row">
-                <!-- Columna izquierda: Selección de cliente y productos -->
+                <!-- Columna izquierda -->
                 <div class="col-md-8">
                     <div class="card shadow-sm mb-4">
                         <div class="card-header bg-primary text-white">
@@ -57,13 +57,13 @@
                                 </div>
                                 
                                 <div class="input-group">
-                                    <select class="form-select" id="cliente_select" onchange="seleccionarClienteDesdeSelect()">
+                                    <select class="form-select" id="cliente_select">
                                         <option value="">Seleccione un cliente...</option>
                                         {% for c in clientes %}
                                         <option value="{{ c.id }}" data-nombre="{{ c.nombre }}">{{ c.nombre }} - {{ c.telefono }}</option>
                                         {% endfor %}
                                     </select>
-                                    <button class="btn btn-outline-secondary" type="button" onclick="limpiarSeleccionCliente()">
+                                    <button class="btn btn-outline-secondary" type="button" id="btnLimpiarCliente">
                                         <i class="bi bi-x-circle"></i>
                                     </button>
                                 </div>
@@ -85,14 +85,14 @@
                                         <input type="number" id="cantidad_producto" class="form-control" min="1" value="1">
                                     </div>
                                     <div class="col-md-3">
-                                        <button type="button" class="btn btn-primary w-100" onclick="agregarProducto()">
+                                        <button type="button" class="btn btn-primary w-100" id="btnAgregarProducto">
                                             <i class="bi bi-plus-circle"></i> Agregar
                                         </button>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Lista de productos agregados -->
+                            <!-- Lista de productos -->
                             <div class="table-responsive">
                                 <table class="table table-sm" id="tablaProductos">
                                     <thead class="table-light">
@@ -104,9 +104,7 @@
                                             <th width="80">Acciones</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="cuerpoProductos">
-                                        <!-- Los productos se agregarán aquí dinámicamente -->
-                                    </tbody>
+                                    <tbody id="cuerpoProductos"></tbody>
                                     <tfoot>
                                         <tr class="table-active">
                                             <td colspan="3" class="text-end fw-bold">TOTAL:</td>
@@ -120,7 +118,7 @@
                     </div>
                 </div>
 
-                <!-- Columna derecha: Resumen y acciones -->
+                <!-- Columna derecha -->
                 <div class="col-md-4">
                     <div class="card shadow-sm">
                         <div class="card-header bg-light">
@@ -128,19 +126,12 @@
                         </div>
                         <div class="card-body">
                             <form action="{{ url_for('main.nueva_venta') }}" method="POST" id="formVenta">
-                                <input type="hidden" name="cliente_id" id="cliente_id" required>
+                                <input type="hidden" name="cliente_id" id="cliente_id">
                                 <input type="hidden" name="detalles" id="detalles_venta" value="[]">
                                 
                                 <div class="mb-3">
-                                    <label for="tipo" class="form-label">Tipo de venta</label>
-                                    <select name="tipo" id="tipo" class="form-select" required>
-                                        <option value="Venta">Venta Normal</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="mb-3">
                                     <label for="total" class="form-label">Total (S/)</label>
-                                    <input type="number" step="0.01" name="total" id="total" class="form-control" required readonly>
+                                    <input type="number" step="0.01" name="total" id="total" class="form-control" readonly>
                                 </div>
                                 
                                 <div class="mb-3">
@@ -152,7 +143,7 @@
                                     <button type="submit" class="btn btn-primary" id="btnGuardarVenta" disabled>
                                         <i class="bi bi-save"></i> Guardar Venta
                                     </button>
-                                    <button type="button" class="btn btn-outline-secondary" onclick="limpiarFormulario()">
+                                    <button type="button" class="btn btn-outline-secondary" id="btnLimpiarTodo">
                                         <i class="bi bi-arrow-clockwise"></i> Limpiar Todo
                                     </button>
                                 </div>
@@ -163,7 +154,7 @@
             </div>
         </div>
 
-        <!-- Pestaña Clientes (SECUNDARIA) -->
+        <!-- Pestaña Clientes -->
         <div class="tab-pane fade" id="clientes" role="tabpanel">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5>Lista de Clientes</h5>
@@ -194,26 +185,19 @@
                             <td>{{ c.direccion }}</td>
                             <td>{{ c.correo }}</td>
                             <td class="text-center">
-                                <div class="btn-group btn-group-sm" role="group">
-                                    <!-- Botón Usar para Venta -->
-                                    <button class="btn btn-outline-primary" 
-                                            onclick="seleccionarClienteDesdeLista('{{ c.id }}', '{{ c.nombre }}')"
-                                            title="Usar para venta">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary btn-usar-cliente" 
+                                            data-id="{{ c.id }}" 
+                                            data-nombre="{{ c.nombre }}">
                                         <i class="bi bi-cart"></i> Venta
                                     </button>
-                                    
-                                    <!-- Botón Editar -->
                                     <a href="{{ url_for('main.editar_cliente', id=c.id) }}" 
-                                       class="btn btn-outline-warning"
-                                       title="Editar cliente">
+                                       class="btn btn-outline-warning">
                                         <i class="bi bi-pencil-square"></i>
                                     </a>
-                                    
-                                    <!-- Botón Eliminar -->
-                                    <button type="button" 
-                                            class="btn btn-outline-danger"
-                                            onclick="confirmarEliminacion({{ c.id }}, '{{ c.nombre }}')"
-                                            title="Eliminar cliente">
+                                    <button class="btn btn-outline-danger btn-eliminar-cliente"
+                                            data-id="{{ c.id }}"
+                                            data-nombre="{{ c.nombre }}">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
@@ -227,15 +211,14 @@
             <div class="alert alert-info text-center">
                 <i class="bi bi-people display-4"></i>
                 <h5 class="mt-3">No hay clientes registrados</h5>
-                <p>Comience agregando su primer cliente al sistema.</p>
                 <a href="{{ url_for('main.nuevo_cliente') }}" class="btn btn-primary">
-                    <i class="bi bi-person-plus"></i> Agregar Primer Cliente
+                    <i class="bi bi-person-plus"></i> Agregar Cliente
                 </a>
             </div>
             {% endif %}
         </div>
 
-        <!-- Pestaña Historial (SECUNDARIA) -->
+        <!-- Pestaña Historial -->
         <div class="tab-pane fade" id="historial" role="tabpanel">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5>Historial de Ventas</h5>
@@ -243,7 +226,7 @@
 
             {% if ventas %}
             <div class="table-responsive">
-                <table class="table table-striped align-middle bg-white shadow-sm">
+                <table class="table table-striped align-middle">
                     <thead class="table-light">
                         <tr>
                             <th>ID</th>
@@ -269,13 +252,11 @@
                             <td class="fw-bold">S/. {{ "%.2f"|format(v.total) }}</td>
                             <td>{{ v.observaciones or 'Sin observaciones' }}</td>
                             <td class="text-center">
-                                <div class="btn-group btn-group-sm" role="group">
-                                    <button type="button" class="btn btn-outline-info" 
-                                            onclick="verDetalleVenta({{ v.id }})" title="Ver detalle">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-info btn-ver-detalle" data-id="{{ v.id }}">
                                         <i class="bi bi-eye"></i>
                                     </button>
-                                    <button type="button" class="btn btn-outline-success" 
-                                            onclick="generarBoletaPDF({{ v.id }})" title="Generar Boleta">
+                                    <button class="btn btn-outline-success btn-generar-pdf" data-id="{{ v.id }}">
                                         <i class="bi bi-file-earmark-pdf"></i> Boleta
                                     </button>
                                 </div>
@@ -286,7 +267,7 @@
                 </table>
             </div>
             {% else %}
-            <div class="alert alert-info text-center mt-2">
+            <div class="alert alert-info text-center">
                 <i class="bi bi-info-circle"></i> No hay ventas registradas aún.
             </div>
             {% endif %}
@@ -294,7 +275,7 @@
     </div>
 </div>
 
-<!-- Modal de confirmación para eliminar cliente -->
+<!-- Modales -->
 <div class="modal fade" id="modalEliminarCliente" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -320,401 +301,433 @@
     </div>
 </div>
 
-<!-- Modal para ver detalle de venta -->
+<!-- Modal para ver detalle de venta (MEJORADO) -->
 <div class="modal fade" id="modalDetalleVenta" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Detalle de Venta #{{ venta_especifica.id if venta_especifica }}</h5>
+                <h5 class="modal-title">Detalle de Venta #<span id="ventaIdTitulo"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                {% if venta_especifica and detalles_venta %}
-                <!-- Información de la venta -->
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <strong>Cliente:</strong> {{ venta_especifica.cliente }}<br>
-                        <strong>Fecha:</strong> {{ venta_especifica.fecha }}
-                    </div>
-                    <div class="col-md-6">
-                        <strong>Tipo:</strong> 
-                        <span class="badge {% if venta_especifica.tipo == 'Contado' %}bg-success{% elif venta_especifica.tipo == 'Crédito' %}bg-warning{% else %}bg-primary{% endif %}">
-                            {{ venta_especifica.tipo }}
-                        </span><br>
-                        <strong>Total:</strong> S/. {{ "%.2f"|format(venta_especifica.total) }}<br>
-                        <strong>Observaciones:</strong> {{ venta_especifica.observaciones or 'Ninguna' }}
-                    </div>
+                <div id="detalleVentaContenido">
+                    <!-- Cargado dinámicamente -->
                 </div>
-
-                <!-- Detalles de productos -->
-                <h6>Productos Vendidos</h6>
-                <div class="table-responsive">
-                    <table class="table table-sm">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Producto</th>
-                                <th>Cantidad</th>
-                                <th>Precio Unit.</th>
-                                <th>Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for detalle in detalles_venta %}
-                            <tr>
-                                <td>{{ detalle.producto }}</td>
-                                <td>{{ detalle.cantidad }}</td>
-                                <td>S/. {{ "%.2f"|format(detalle.precio_unitario) }}</td>
-                                <td>S/. {{ "%.2f"|format(detalle.subtotal) }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                        <tfoot>
-                            <tr class="table-active">
-                                <td colspan="3" class="text-end fw-bold">TOTAL:</td>
-                                <td class="fw-bold">S/. {{ "%.2f"|format(venta_especifica.total) }}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-
-                <!-- Botón de generación de boleta en el modal -->
-                <div class="row mt-4">
-                    <div class="col-12">
-                        <button type="button" class="btn btn-success w-100" onclick="generarBoletaPDF({{ venta_especifica.id }})">
-                            <i class="bi bi-file-earmark-pdf"></i> Generar Boleta PDF
-                        </button>
-                    </div>
-                </div>
-                {% else %}
-                <div class="text-center py-4">
-                    <i class="bi bi-exclamation-triangle text-warning display-4"></i>
-                    <p class="mt-3">No se pudo cargar el detalle de la venta.</p>
-                </div>
-                {% endif %}
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-success" id="btnGenerarPDFModal">
+                    <i class="bi bi-file-earmark-pdf"></i> Generar Boleta PDF
+                </button>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-// Variables globales
-let productosDisponibles = [];
-let productosSeleccionados = [];
-
-// Cargar productos disponibles al iniciar
+// ========== CONFIGURACIÓN INICIAL ==========
 document.addEventListener('DOMContentLoaded', function() {
-    cargarProductos();
+    VentaApp.init();
     
-    // Mostrar modal de detalle si hay una venta específica
-    {% if venta_especifica %}
-    const modalDetalle = new bootstrap.Modal(document.getElementById('modalDetalleVenta'));
-    modalDetalle.show();
+    // Mostrar modal de detalle si se cargó con una venta específica
+    {% if venta_especifica and detalles_venta %}
+    VentaApp.mostrarDetalleVenta({{ venta_especifica|tojson }}, {{ detalles_venta|tojson }});
     {% endif %}
 });
 
-// Función para cargar productos desde API
-function cargarProductos() {
-    fetch('/api/productos_venta')
-        .then(response => response.json())
-        .then(data => {
-            productosDisponibles = data;
-            const select = document.getElementById('producto_select');
-            select.innerHTML = '<option value="">Seleccione un producto...</option>';
-            
-            data.forEach(producto => {
-                const option = document.createElement('option');
-                option.value = producto.id;
-                option.textContent = `${producto.nombre} - Stock: ${producto.stock} - S/. ${producto.precio}`;
-                option.setAttribute('data-precio', producto.precio);
-                option.setAttribute('data-stock', producto.stock);
-                select.appendChild(option);
-            });
-        })
-        .catch(error => {
+// ========== OBJETO PRINCIPAL ==========
+const VentaApp = {
+    productos: [],
+    carrito: [],
+    ventaActual: null,
+    
+    init: function() {
+        this.cargarProductos();
+        this.inicializarEventos();
+    },
+    
+    cargarProductos: async function() {
+        try {
+            const response = await fetch('/api/productos_venta');
+            this.productos = await response.json();
+            this.actualizarSelectProductos();
+        } catch (error) {
             console.error('Error al cargar productos:', error);
-        });
-}
-
-// Función para agregar producto a la venta
-function agregarProducto() {
-    const select = document.getElementById('producto_select');
-    const cantidadInput = document.getElementById('cantidad_producto');
-    const productoId = select.value;
-    const cantidad = parseInt(cantidadInput.value);
+            this.mostrarAlerta('Error al cargar productos', 'danger');
+        }
+    },
     
-    if (!productoId || !cantidad || cantidad <= 0) {
-        alert('Por favor seleccione un producto y una cantidad válida.');
-        return;
-    }
-    
-    const producto = productosDisponibles.find(p => p.id == productoId);
-    if (!producto) return;
-    
-    // Verificar stock
-    if (cantidad > producto.stock) {
-        alert(`Stock insuficiente. Disponible: ${producto.stock}`);
-        return;
-    }
-    
-    // Verificar si el producto ya está en la lista
-    const existente = productosSeleccionados.findIndex(p => p.id == productoId);
-    if (existente !== -1) {
-        productosSeleccionados[existente].cantidad += cantidad;
-    } else {
-        productosSeleccionados.push({
-            id: productoId,
-            nombre: producto.nombre,
-            precio: producto.precio,
-            cantidad: cantidad
-        });
-    }
-    
-    actualizarTablaProductos();
-    select.value = '';
-    cantidadInput.value = 1;
-}
-
-// Función para eliminar producto de la lista
-function eliminarProducto(index) {
-    productosSeleccionados.splice(index, 1);
-    actualizarTablaProductos();
-}
-
-// Función para actualizar la tabla de productos
-function actualizarTablaProductos() {
-    const tbody = document.getElementById('cuerpoProductos');
-    const totalInput = document.getElementById('total');
-    const totalGeneral = document.getElementById('totalGeneral');
-    const btnGuardar = document.getElementById('btnGuardarVenta');
-    const detallesInput = document.getElementById('detalles_venta');
-    
-    tbody.innerHTML = '';
-    let total = 0;
-    
-    productosSeleccionados.forEach((producto, index) => {
-        const subtotal = producto.precio * producto.cantidad;
-        total += subtotal;
+    actualizarSelectProductos: function() {
+        const select = document.getElementById('producto_select');
+        if (!select) return;
         
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${producto.nombre}</td>
-            <td>${producto.cantidad}</td>
-            <td>S/. ${producto.precio.toFixed(2)}</td>
-            <td>S/. ${subtotal.toFixed(2)}</td>
-            <td>
-                <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarProducto(${index})">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
+        select.innerHTML = '<option value="">Seleccione un producto...</option>';
+        
+        this.productos.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.textContent = `${p.nombre} - Stock: ${p.stock} - S/. ${p.precio}`;
+            option.dataset.precio = p.precio;
+            option.dataset.stock = p.stock;
+            select.appendChild(option);
+        });
+    },
     
-    totalInput.value = total.toFixed(2);
-    totalGeneral.textContent = `S/. ${total.toFixed(2)}`;
-    
-    // Habilitar/deshabilitar botón de guardar
-    const clienteSeleccionado = document.getElementById('cliente_id').value;
-    btnGuardar.disabled = !(clienteSeleccionado && productosSeleccionados.length > 0);
-    
-    // Actualizar campo hidden con los detalles
-    detallesInput.value = JSON.stringify(productosSeleccionados.map(p => ({
-        id_producto: p.id,
-        cantidad: p.cantidad
-    })));
-}
-
-// Función para seleccionar cliente desde el select
-function seleccionarClienteDesdeSelect() {
-    const select = document.getElementById('cliente_select');
-    const selectedOption = select.options[select.selectedIndex];
-    
-    if (selectedOption.value) {
-        document.getElementById('cliente_id').value = selectedOption.value;
-        document.getElementById('clienteSeleccionado').innerText = 'Cliente: ' + selectedOption.dataset.nombre;
-    } else {
-        limpiarSeleccionCliente();
-    }
-    
-    actualizarTablaProductos();
-}
-
-// Función para seleccionar cliente desde la lista de clientes
-function seleccionarClienteDesdeLista(id, nombre) {
-    document.getElementById('cliente_id').value = id;
-    document.getElementById('clienteSeleccionado').innerText = 'Cliente: ' + nombre;
-    
-    // Seleccionar en el dropdown
-    const select = document.getElementById('cliente_select');
-    select.value = id;
-    
-    // Cambiar a la pestaña de registrar venta
-    const registrarTab = new bootstrap.Tab(document.querySelector('#registrar-tab'));
-    registrarTab.show();
-    
-    // Actualizar estado del botón de guardar
-    actualizarTablaProductos();
-}
-
-// Función para limpiar selección de cliente
-function limpiarSeleccionCliente() {
-    document.getElementById('cliente_id').value = '';
-    document.getElementById('clienteSeleccionado').innerText = 'Ningún cliente seleccionado';
-    document.getElementById('cliente_select').value = '';
-    actualizarTablaProductos();
-}
-
-// Función para limpiar formulario completo
-function limpiarFormulario() {
-    productosSeleccionados = [];
-    document.getElementById('observaciones').value = '';
-    document.getElementById('tipo').value = 'Venta';
-    limpiarSeleccionCliente();
-    actualizarTablaProductos();
-}
-
-// Función para confirmar eliminación de cliente
-function confirmarEliminacion(clienteId, clienteNombre) {
-    document.getElementById('nombreClienteEliminar').textContent = clienteNombre;
-    document.getElementById('btnEliminarClienteConfirmar').href = "{{ url_for('main.eliminar_cliente', id=0) }}".replace('0', clienteId);
-    
-    const modal = new bootstrap.Modal(document.getElementById('modalEliminarCliente'));
-    modal.show();
-}
-
-// Función para ver detalle de venta (carga la página con parámetros)
-function verDetalleVenta(ventaId) {
-    window.location.href = "{{ url_for('main.ver_venta', id=0) }}".replace('0', ventaId);
-}
-
-// =====================================================
-// FUNCIÓN PARA GENERACIÓN DE BOLETA PDF
-// =====================================================
-
-// Función para generar PDF de boleta
-function generarBoletaPDF(ventaId) {
-    mostrarCargando('Generando boleta...');
-    
-    fetch(`/api/ventas/${ventaId}/pdf/boleta`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Error al generar la boleta');
+    inicializarEventos: function() {
+        // Eventos de cliente
+        const clienteSelect = document.getElementById('cliente_select');
+        const btnLimpiarCliente = document.getElementById('btnLimpiarCliente');
+        if (clienteSelect) clienteSelect.addEventListener('change', this.seleccionarCliente.bind(this));
+        if (btnLimpiarCliente) btnLimpiarCliente.addEventListener('click', this.limpiarCliente.bind(this));
+        
+        // Eventos de productos
+        const btnAgregarProducto = document.getElementById('btnAgregarProducto');
+        const btnLimpiarTodo = document.getElementById('btnLimpiarTodo');
+        if (btnAgregarProducto) btnAgregarProducto.addEventListener('click', this.agregarProducto.bind(this));
+        if (btnLimpiarTodo) btnLimpiarTodo.addEventListener('click', this.limpiarTodo.bind(this));
+        
+        // Evento para generar PDF desde el modal
+        const btnGenerarPDFModal = document.getElementById('btnGenerarPDFModal');
+        if (btnGenerarPDFModal) {
+            btnGenerarPDFModal.addEventListener('click', () => {
+                if (this.ventaActual) {
+                    this.generarPDF(this.ventaActual.id);
+                }
+            });
+        }
+        
+        // Eventos delegados para tablas
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            
+            if (btn.classList.contains('btn-usar-cliente')) {
+                this.usarCliente(btn.dataset.id, btn.dataset.nombre);
             }
-            return response.blob();
-        })
-        .then(blob => {
-            ocultarCargando();
-            // Crear URL para el blob y descargar
+            else if (btn.classList.contains('btn-eliminar-cliente')) {
+                this.confirmarEliminarCliente(btn.dataset.id, btn.dataset.nombre);
+            }
+            else if (btn.classList.contains('btn-ver-detalle')) {
+                this.cargarDetalleVenta(btn.dataset.id);
+            }
+            else if (btn.classList.contains('btn-generar-pdf')) {
+                this.generarPDF(btn.dataset.id);
+            }
+            else if (btn.closest('#cuerpoProductos') && btn.classList.contains('btn-eliminar-producto')) {
+                const index = btn.dataset.index;
+                this.eliminarProducto(index);
+            }
+        });
+    },
+    
+    // ========== FUNCIONALIDADES DE CLIENTE ==========
+    seleccionarCliente: function() {
+        const select = document.getElementById('cliente_select');
+        const option = select.options[select.selectedIndex];
+        
+        if (option.value) {
+            document.getElementById('cliente_id').value = option.value;
+            document.getElementById('clienteSeleccionado').textContent = 'Cliente: ' + option.dataset.nombre;
+            this.actualizarBotonGuardar();
+        } else {
+            this.limpiarCliente();
+        }
+    },
+    
+    limpiarCliente: function() {
+        document.getElementById('cliente_id').value = '';
+        document.getElementById('clienteSeleccionado').textContent = 'Ningún cliente seleccionado';
+        document.getElementById('cliente_select').value = '';
+        this.actualizarBotonGuardar();
+    },
+    
+    usarCliente: function(id, nombre) {
+        document.getElementById('cliente_id').value = id;
+        document.getElementById('clienteSeleccionado').textContent = 'Cliente: ' + nombre;
+        document.getElementById('cliente_select').value = id;
+        
+        // Cambiar a pestaña de registrar venta
+        new bootstrap.Tab(document.querySelector('#registrar-tab')).show();
+        this.actualizarBotonGuardar();
+    },
+    
+    confirmarEliminarCliente: function(id, nombre) {
+        document.getElementById('nombreClienteEliminar').textContent = nombre;
+        document.getElementById('btnEliminarClienteConfirmar').href = 
+            "{{ url_for('main.eliminar_cliente', id=0) }}".replace('0', id);
+        
+        new bootstrap.Modal(document.getElementById('modalEliminarCliente')).show();
+    },
+    
+    // ========== FUNCIONALIDADES DE PRODUCTOS ==========
+    agregarProducto: function() {
+        const select = document.getElementById('producto_select');
+        const cantidadInput = document.getElementById('cantidad_producto');
+        const productoId = select.value;
+        const cantidad = parseInt(cantidadInput.value);
+        
+        if (!productoId || !cantidad || cantidad <= 0) {
+            this.mostrarAlerta('Por favor seleccione un producto y una cantidad válida.', 'warning');
+            return;
+        }
+        
+        const producto = this.productos.find(p => p.id == productoId);
+        if (!producto) return;
+        
+        if (cantidad > producto.stock) {
+            this.mostrarAlerta(`Stock insuficiente. Disponible: ${producto.stock}`, 'warning');
+            return;
+        }
+        
+        // Agregar o actualizar en carrito
+        const index = this.carrito.findIndex(p => p.id == productoId);
+        if (index !== -1) {
+            this.carrito[index].cantidad += cantidad;
+        } else {
+            this.carrito.push({
+                id: productoId,
+                nombre: producto.nombre,
+                precio: producto.precio,
+                cantidad: cantidad
+            });
+        }
+        
+        this.actualizarTablaProductos();
+        select.value = '';
+        cantidadInput.value = 1;
+    },
+    
+    eliminarProducto: function(index) {
+        this.carrito.splice(index, 1);
+        this.actualizarTablaProductos();
+    },
+    
+    actualizarTablaProductos: function() {
+        const tbody = document.getElementById('cuerpoProductos');
+        const totalInput = document.getElementById('total');
+        const totalGeneral = document.getElementById('totalGeneral');
+        const detallesInput = document.getElementById('detalles_venta');
+        
+        if (!tbody) return;
+        
+        tbody.innerHTML = '';
+        let total = 0;
+        
+        this.carrito.forEach((producto, index) => {
+            const subtotal = producto.precio * producto.cantidad;
+            total += subtotal;
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${producto.nombre}</td>
+                <td>${producto.cantidad}</td>
+                <td>S/. ${producto.precio.toFixed(2)}</td>
+                <td>S/. ${subtotal.toFixed(2)}</td>
+                <td>
+                    <button class="btn btn-outline-danger btn-sm btn-eliminar-producto" data-index="${index}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+        if (totalInput) totalInput.value = total.toFixed(2);
+        if (totalGeneral) totalGeneral.textContent = `S/. ${total.toFixed(2)}`;
+        
+        if (detallesInput) {
+            detallesInput.value = JSON.stringify(
+                this.carrito.map(p => ({ id_producto: p.id, cantidad: p.cantidad }))
+            );
+        }
+        
+        this.actualizarBotonGuardar();
+    },
+    
+    actualizarBotonGuardar: function() {
+        const btn = document.getElementById('btnGuardarVenta');
+        if (!btn) return;
+        
+        const clienteSeleccionado = document.getElementById('cliente_id').value;
+        btn.disabled = !(clienteSeleccionado && this.carrito.length > 0);
+    },
+    
+    limpiarTodo: function() {
+        this.carrito = [];
+        const observaciones = document.getElementById('observaciones');
+        if (observaciones) observaciones.value = '';
+        this.limpiarCliente();
+        this.actualizarTablaProductos();
+    },
+    
+    // ========== FUNCIONALIDADES DE VENTAS ==========
+    cargarDetalleVenta: async function(id) {
+        try {
+            this.mostrarCargando('Cargando detalle de venta...');
+            const response = await fetch(`/api/ventas/${id}/detalle`);
+            
+            if (!response.ok) {
+                // Si no hay API, redirigir a la página de detalle como en el original
+                window.location.href = "{{ url_for('main.ver_venta', id=0) }}".replace('0', id);
+                return;
+            }
+            
+            const data = await response.json();
+            this.ocultarCargando();
+            this.mostrarDetalleVenta(data.venta, data.detalles);
+        } catch (error) {
+            this.ocultarCargando();
+            // Fallback a la redirección original
+            window.location.href = "{{ url_for('main.ver_venta', id=0) }}".replace('0', id);
+        }
+    },
+    
+    mostrarDetalleVenta: function(venta, detalles) {
+        this.ventaActual = venta;
+        
+        // Actualizar título
+        document.getElementById('ventaIdTitulo').textContent = venta.id;
+        
+        // Crear contenido del modal
+        let contenido = `
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <strong>Cliente:</strong> ${venta.cliente}<br>
+                    <strong>Fecha:</strong> ${venta.fecha}
+                </div>
+                <div class="col-md-6">
+                    <strong>Tipo:</strong> 
+                    <span class="badge ${venta.tipo === 'Contado' ? 'bg-success' : venta.tipo === 'Crédito' ? 'bg-warning' : 'bg-primary'}">
+                        ${venta.tipo || 'Venta'}
+                    </span><br>
+                    <strong>Total:</strong> S/. ${venta.total.toFixed(2)}<br>
+                    <strong>Observaciones:</strong> ${venta.observaciones || 'Ninguna'}
+                </div>
+            </div>
+
+            <h6>Productos Vendidos</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Precio Unit.</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        // Agregar detalles de productos
+        detalles.forEach(detalle => {
+            contenido += `
+                <tr>
+                    <td>${detalle.producto}</td>
+                    <td>${detalle.cantidad}</td>
+                    <td>S/. ${detalle.precio_unitario.toFixed(2)}</td>
+                    <td>S/. ${detalle.subtotal.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+        
+        contenido += `
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-active">
+                            <td colspan="3" class="text-end fw-bold">TOTAL:</td>
+                            <td class="fw-bold">S/. ${venta.total.toFixed(2)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        `;
+        
+        // Insertar contenido en el modal
+        document.getElementById('detalleVentaContenido').innerHTML = contenido;
+        
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('modalDetalleVenta'));
+        modal.show();
+    },
+    
+    generarPDF: async function(id) {
+        try {
+            this.mostrarCargando('Generando boleta...');
+            const response = await fetch(`/api/ventas/${id}/pdf/boleta`);
+            
+            if (!response.ok) throw new Error('Error al generar boleta');
+            
+            const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.style.display = 'none';
             a.href = url;
-            a.download = `boleta_venta_${ventaId}.pdf`;
+            a.download = `boleta_venta_${id}.pdf`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
+            a.remove();
             
-            mostrarMensajeExito('Boleta generada correctamente');
-        })
-        .catch(error => {
-            ocultarCargando();
-            console.error('Error:', error);
-            mostrarMensajeError('Error al generar la boleta: ' + error.message);
-        });
-}
-
-// Funciones auxiliares para mostrar/ocultar estados de carga
-function mostrarCargando(mensaje) {
-    // Crear overlay de carga si no existe
-    let overlay = document.getElementById('loadingOverlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'loadingOverlay';
-        overlay.className = 'position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center';
-        overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
-        overlay.style.zIndex = '9999';
-        overlay.innerHTML = `
-            <div class="bg-white rounded p-4 text-center">
-                <div class="spinner-border text-primary mb-3"></div>
-                <p class="mb-0" id="loadingMessage">${mensaje}</p>
-            </div>
+            this.ocultarCargando();
+            this.mostrarAlerta('Boleta generada correctamente', 'success');
+        } catch (error) {
+            this.ocultarCargando();
+            this.mostrarAlerta('Error al generar boleta: ' + error.message, 'danger');
+        }
+    },
+    
+    // ========== UTILIDADES ==========
+    mostrarAlerta: function(mensaje, tipo = 'info') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${tipo} alert-dismissible fade show mt-2`;
+        alertDiv.innerHTML = `
+            ${mensaje}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
-        document.body.appendChild(overlay);
+        
+        const container = document.querySelector('.alert-container') || document.querySelector('.container');
+        if (container) {
+            container.prepend(alertDiv);
+        }
+        
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    },
+    
+    mostrarCargando: function(mensaje) {
+        let overlay = document.getElementById('loadingOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'loadingOverlay';
+            overlay.className = 'position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center';
+            overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+            overlay.style.zIndex = '9999';
+            overlay.innerHTML = `
+                <div class="bg-white rounded p-4 text-center">
+                    <div class="spinner-border text-primary mb-3"></div>
+                    <p class="mb-0">${mensaje}</p>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+    },
+    
+    ocultarCargando: function() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.remove();
     }
-}
-
-function ocultarCargando() {
-    const overlay = document.getElementById('loadingOverlay');
-    if (overlay) {
-        overlay.remove();
-    }
-}
-
-function mostrarMensajeExito(mensaje) {
-    // Usar toast de Bootstrap si está disponible, sino alert simple
-    if (typeof bootstrap !== 'undefined' && bootstrap.Toast) {
-        const toastEl = document.createElement('div');
-        toastEl.className = 'toast align-items-center text-white bg-success border-0';
-        toastEl.innerHTML = `
-            <div class="d-flex">
-                <div class="toast-body">${mensaje}</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-            </div>
-        `;
-        document.body.appendChild(toastEl);
-        const toast = new bootstrap.Toast(toastEl);
-        toast.show();
-        setTimeout(() => toastEl.remove(), 5000);
-    } else {
-        alert(mensaje);
-    }
-}
-
-function mostrarMensajeError(mensaje) {
-    if (typeof bootstrap !== 'undefined' && bootstrap.Toast) {
-        const toastEl = document.createElement('div');
-        toastEl.className = 'toast align-items-center text-white bg-danger border-0';
-        toastEl.innerHTML = `
-            <div class="d-flex">
-                <div class="toast-body">${mensaje}</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-            </div>
-        `;
-        document.body.appendChild(toastEl);
-        const toast = new bootstrap.Toast(toastEl);
-        toast.show();
-        setTimeout(() => toastEl.remove(), 5000);
-    } else {
-        alert(mensaje);
-    }
-}
+};
 </script>
 
 <style>
-/* Estilos adicionales para los botones de PDF */
-.btn-group-sm .btn {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
-}
-
-/* Mejora visual para la tabla de historial */
-.table tbody tr:hover {
-    background-color: rgba(0, 0, 0, 0.025);
-}
-
-/* Estilos para el modal de detalle */
-.modal-lg {
-    max-width: 800px;
-}
-
-/* Estilos para los badges de tipo de venta */
-.badge {
-    font-size: 0.75em;
-}
+/* Estilos mínimos necesarios */
+.btn-group-sm .btn { padding: 0.25rem 0.5rem; }
+.badge { font-size: 0.75em; }
+.modal-lg { max-width: 800px; }
+.table tbody tr:hover { background-color: rgba(0,0,0,0.02); }
 </style>
 
 {% endblock %}

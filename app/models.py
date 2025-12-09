@@ -456,10 +456,11 @@ def obtener_ventas():
 
 
 def registrar_venta(id_cliente, detalle_json, observaciones=None):
-    """Registra una venta completa usando sp_RegistrarVenta"""
+    """Registra una venta completa usando sp_RegistrarVenta con observaciones"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
+        # Agregar parámetro para observaciones
         cursor.execute("EXEC sp_RegistrarVenta @id_cliente=?, @detalle=?, @observaciones=?", 
                       (id_cliente, detalle_json, observaciones))
         conn.commit()

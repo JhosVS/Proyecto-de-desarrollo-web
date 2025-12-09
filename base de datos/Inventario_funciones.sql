@@ -350,7 +350,7 @@ GO
 CREATE OR ALTER PROCEDURE sp_RegistrarVenta
     @id_cliente INT,
     @detalle NVARCHAR(MAX),
-    @observaciones NVARCHAR(500) = NULL  -- ← NUEVO PARÁMETRO
+    @observaciones NVARCHAR(500) = NULL  -- <-- Agregar este parámetro
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -372,12 +372,45 @@ BEGIN
 
         -- Insertar la venta CON observaciones
         INSERT INTO Ventas (id_cliente, id_usuario, total, tipo_venta, observaciones)
-        VALUES (@id_cliente, NULL, @total, @tipo_venta, @observaciones);
+        VALUES (@id_cliente, NULL, @total, 'Venta', @observaciones);  -- <-- Agregar observaciones aquí
 
         SET @id_venta = SCOPE_IDENTITY();
 
-        -- Insertar detalles y actualizar stock (código existente)
-        -- ... (mantener el código existente aquí)
+        -- Insertar detalles (resto del código se mantiene igual)
+        INSERT INTO Detalle_venta (id_venta, id_producto, cantidad, precio_unitario)
+        SELECT 
+            @id_venta,
+            d.id_producto,
+            d.cantidad,
+            p.precio_unitario
+        FROM OPENJSON(@detalle)
+        WITH (
+            id_producto INT,
+            cantidad DECIMAL(10,2)
+        ) d
+        INNER JOIN Productos p ON d.id_producto = p.id_producto;
+
+        -- Actualizar stock y registrar movimientos
+        INSERT INTO Cambios_Inventario (id_producto, tipo_movimiento, cantidad, observaciones)
+        SELECT 
+            d.id_producto,
+            'Salida',
+            d.cantidad,
+            'Venta #' + CAST(@id_venta AS NVARCHAR(10))
+        FROM OPENJSON(@detalle)
+        WITH (
+            id_producto INT,
+            cantidad DECIMAL(10,2)
+        ) d;
+
+        UPDATE p
+        SET p.stock_actual = p.stock_actual - d.cantidad
+        FROM Productos p
+        INNER JOIN (
+            SELECT id_producto, cantidad
+            FROM OPENJSON(@detalle)
+            WITH (id_producto INT, cantidad DECIMAL(10,2))
+        ) d ON p.id_producto = d.id_producto;
 
         COMMIT TRANSACTION;
         PRINT '✅ Venta registrada correctamente. ID: ' + CAST(@id_venta AS NVARCHAR(10));

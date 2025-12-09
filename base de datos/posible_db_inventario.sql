@@ -128,6 +128,5 @@ CREATE TABLE Cambios_Inventario (
     fecha_movimiento DATETIME DEFAULT GETDATE()
 );
 
--- Esta parte corresponde a una futura auditoria
 
 PRINT '✅ Base de datos INVENTARIO creada correctamente con datos de ejemplo';
