@@ -222,13 +222,15 @@ def nueva_venta():
         try:
             cliente_id = int(request.form["cliente_id"])
             detalles_json = request.form["detalles"]
+            observaciones = request.form.get("observaciones", None)  # <-- Obtener observaciones
             
             print("=== DEBUG VENTA ===")
             print("Cliente ID:", cliente_id)
+            print("Observaciones:", observaciones)
             print("Detalles JSON:", detalles_json)
             
-            # Registrar la venta
-            success, mensaje = models.registrar_venta(cliente_id, detalles_json)
+            # Registrar la venta CON OBSERVACIONES
+            success, mensaje = models.registrar_venta(cliente_id, detalles_json, observaciones)
             
             print("Resultado:", success, mensaje)
             print("=== FIN DEBUG ===")

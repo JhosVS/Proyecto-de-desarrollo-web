@@ -429,7 +429,8 @@ GO
 
 CREATE OR ALTER PROCEDURE sp_RegistrarVenta
     @id_cliente INT,
-    @detalle NVARCHAR(MAX)
+    @detalle NVARCHAR(MAX),
+    @observaciones NVARCHAR(255) = NULL  -- <-- NUEVO PARÁMETRO
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -439,7 +440,7 @@ BEGIN
         DECLARE @id_venta INT;
         DECLARE @total DECIMAL(10,2) = 0;
 
-        -- Calcular el total directamente desde el JSON
+        -- Calcular el total
         SELECT @total = SUM(d.cantidad * p.precio_unitario)
         FROM OPENJSON(@detalle)
         WITH (
@@ -448,12 +449,13 @@ BEGIN
         ) d
         INNER JOIN Productos p ON d.id_producto = p.id_producto;
 
-        -- Insertar la venta (sin usuario)
-        INSERT INTO Ventas (id_cliente, id_usuario, total, tipo_venta)
-        VALUES (@id_cliente, NULL, @total, 'Venta');
+        -- Insertar la venta (CON OBSERVACIONES)
+        INSERT INTO Ventas (id_cliente, id_usuario, total, tipo_venta, observaciones)  -- <-- Incluir observaciones
+        VALUES (@id_cliente, NULL, @total, 'Venta', @observaciones);  -- <-- Usar @observaciones
 
         SET @id_venta = SCOPE_IDENTITY();
 
+        -- Resto del procedimiento se mantiene igual...
         -- Insertar detalles
         INSERT INTO Detalle_venta (id_venta, id_producto, cantidad, precio_unitario)
         SELECT 
